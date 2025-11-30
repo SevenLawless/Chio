@@ -24,6 +24,8 @@ Before starting, ensure you have:
 - ✅ Your project code pushed to a GitHub repository
 - ✅ Project working locally (tested with `npm run dev`)
 
+**Note:** This project includes `railway.json` configuration files in both `backend/` and `frontend/` directories. These help Railway auto-detect build and start commands. If Railway still can't detect them, you'll need to manually configure the Root Directory in Railway settings.
+
 ---
 
 ## Repository Setup
@@ -96,8 +98,10 @@ your-repo/
 2. Go to "**Settings**"
 3. Under "**Build**":
    - **Root Directory:** `backend`
-   - **Build Command:** `npm install && npm run build`
-   - **Start Command:** `npm start`
+   - **Build Command:** `npm install && npm run build` (or leave empty - `railway.json` will handle it)
+   - **Start Command:** `npm start` (or leave empty - `railway.json` will handle it)
+
+**Note:** The project includes `backend/railway.json` which should auto-configure the build. If Railway still can't detect it, manually set the Root Directory to `backend`.
 
 ### Step 4: Set Environment Variables
 
@@ -147,19 +151,10 @@ NODE_ENV=production
 2. Go to "**Settings**"
 3. Under "**Build**":
    - **Root Directory:** `frontend`
-   - **Build Command:** `npm install && npm run build`
-   - **Start Command:** (leave empty, Railway auto-detects Vite)
+   - **Build Command:** `npm install && npm run build` (or leave empty - `railway.json` will handle it)
+   - **Start Command:** `npm start` (or leave empty - `railway.json` will handle it)
 
-**Or use this start command for production:**
-```
-npx serve -s dist -l 3000
-```
-
-Then add `serve` to frontend dependencies:
-```bash
-cd frontend
-npm install --save-dev serve
-```
+**Note:** The project includes `frontend/railway.json` which configures the build and uses `serve` to serve the static files. The `serve` package is already configured in the start script.
 
 ### Step 3: Set Environment Variables
 
