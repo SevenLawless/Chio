@@ -23,8 +23,14 @@ Before starting, ensure you have:
 - ✅ GitHub account
 - ✅ Your project code pushed to a GitHub repository
 - ✅ Project working locally (tested with `npm run dev`)
+- ✅ **Node.js 20+** (Railway will use Node 20 automatically via `nixpacks.toml`)
 
-**Note:** This project includes `railway.json` configuration files in both `backend/` and `frontend/` directories. These help Railway auto-detect build and start commands. If Railway still can't detect them, you'll need to manually configure the Root Directory in Railway settings.
+**Note:** 
+- This project includes `nixpacks.toml` configuration files in both `backend/` and `frontend/` directories
+- These files automatically configure Node 20 and build/start commands
+- The project also includes `.nvmrc` files specifying Node 20
+- Railway will automatically detect and use these configurations
+- If Railway still can't detect them, you'll need to manually configure the Root Directory in Railway settings
 
 ---
 
@@ -101,11 +107,25 @@ your-repo/
    - **Build Command:** `npm install && npm run build` (or leave empty - `railway.json` will handle it)
    - **Start Command:** `npm start` (or leave empty - `railway.json` will handle it)
 
-**Note:** The project includes `backend/railway.json` which should auto-configure the build. If Railway still can't detect it, manually set the Root Directory to `backend`.
+**Note:** 
+- The project includes `backend/nixpacks.toml` which automatically configures Node 20 and build/start commands
+- The project also includes `backend/.nvmrc` specifying Node 20
+- Railway will automatically use Node 20 based on these configuration files
+- If Railway still can't detect it, manually set the Root Directory to `backend`
 
-### Step 4: Set Environment Variables
+### Step 4: Link MySQL Database to Backend Service
 
-1. In the backend service, go to "**Variables**" tab
+**CRITICAL:** Before setting environment variables, you must link the MySQL database:
+
+1. In your Railway project, click on the **backend service**
+2. Go to "**Variables**" tab
+3. Click "**+ New Variable**"
+4. In the dropdown, you should see your MySQL service listed
+5. Select it and choose "**DATABASE_URL**" from the available variables
+6. This will automatically create: `DATABASE_URL=${{MySQL.DATABASE_URL}}`
+
+**OR manually add:**
+1. Go to "**Variables**" tab
 2. Click "**Raw Editor**"
 3. Add the following variables:
 
@@ -113,14 +133,14 @@ your-repo/
 DATABASE_URL=${{MySQL.DATABASE_URL}}
 JWT_SECRET=<generate-a-long-random-secret-key>
 JWT_EXPIRES_IN=7d
-PORT=4000
 NODE_ENV=production
 ```
 
 **Important Notes:**
-- `${{MySQL.DATABASE_URL}}` automatically references your MySQL database
-- Generate JWT_SECRET using: `openssl rand -base64 64` (or any long random string)
-- Railway automatically provides PORT, but we set it explicitly for clarity
+- `${{MySQL.DATABASE_URL}}` - Replace `MySQL` with your actual MySQL service name (check in Railway dashboard)
+- Generate JWT_SECRET using: `openssl rand -base64 64` (or visit https://generate-secret.vercel.app/64)
+- **DO NOT set PORT** - Railway automatically provides this via `process.env.PORT`
+- Make sure MySQL service name matches exactly (case-sensitive)
 
 ### Step 5: Deploy Backend
 
@@ -151,10 +171,14 @@ NODE_ENV=production
 2. Go to "**Settings**"
 3. Under "**Build**":
    - **Root Directory:** `frontend`
-   - **Build Command:** `npm install && npm run build` (or leave empty - `railway.json` will handle it)
-   - **Start Command:** `npm start` (or leave empty - `railway.json` will handle it)
+   - **Build Command:** (leave empty - `nixpacks.toml` will handle it)
+   - **Start Command:** (leave empty - `nixpacks.toml` will handle it)
 
-**Note:** The project includes `frontend/railway.json` which configures the build and uses `serve` to serve the static files. The `serve` package is already configured in the start script.
+**Note:** 
+- The project includes `frontend/nixpacks.toml` which automatically configures Node 20 and build/start commands
+- The project also includes `frontend/.nvmrc` specifying Node 20
+- Railway will automatically use Node 20 based on these configuration files
+- The `serve` package is configured to serve the built static files
 
 ### Step 3: Set Environment Variables
 
@@ -282,9 +306,14 @@ app.use(cors({
 
 2. **Common Issues:**
    ```
-   Error: Missing required environment variable
+   Error: Missing required environment variable: DATABASE_URL
    ```
-   → Verify all required env vars are set
+   → **Solution:**
+     1. Go to backend service → Variables tab
+     2. Make sure `DATABASE_URL` is set
+     3. If using reference: `${{MySQL.DATABASE_URL}}` - verify MySQL service name matches
+     4. If manually set: Check the connection string format is correct
+     5. **Redeploy** after adding variables (Railway doesn't auto-restart)
 
    ```
    Error: Can't reach database server
