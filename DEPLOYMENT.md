@@ -119,8 +119,14 @@ your-repo/
 2. Go to "**Settings**" tab
 3. Under "**Build**" section:
    - **Root Directory:** `backend`
+   - **Builder:** Select "**Railpack**" from the dropdown (⚠️ CRITICAL - do not use Docker or Nixpacks)
    - **Build Command:** (leave empty - `railway.json` handles it)
    - **Start Command:** (leave empty - `railway.json` handles it)
+
+**⚠️ IMPORTANT:** 
+- If you see "Docker" selected as the Builder, you MUST change it to "Railpack"
+- If Build Command or Start Command fields have values (like `cd backend && npm install`), **clear them** - Railway should use `backend/railway.json` when Root Directory is set to `backend`
+- Railway may show "The value is set in railway.json" - this is correct, but ensure it's using `backend/railway.json`, not the root one
 
 **Note:** The `backend/railway.json` file already contains:
 ```json
@@ -309,8 +315,11 @@ app.use(cors({
 2. Go to "**Settings**" tab
 3. Under "**Build**" section:
    - **Root Directory:** `frontend`
+   - **Builder:** Select "**Railpack**" from the dropdown (⚠️ CRITICAL - do not use Docker or Nixpacks)
    - **Build Command:** (leave empty - `railway.json` handles it)
    - **Start Command:** (leave empty - `railway.json` handles it)
+
+**⚠️ IMPORTANT:** If you see "Docker" selected as the Builder, you MUST change it to "Railpack". Railway may default to Docker, which will cause "npm: command not found" errors.
 
 **Note:** The `frontend/railway.json` file contains:
 ```json
@@ -474,7 +483,27 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
 
 **Solution:**
 
-**Option 1: Force Railpack Builder (Recommended)**
+**Option 1: Force Railpack Builder in Railway Dashboard (CRITICAL - Do This First!)**
+
+**⚠️ The most common cause:** Railway dashboard settings override `railway.json`. You MUST change it in the dashboard:
+
+1. Go to your backend service in Railway
+2. Click "**Settings**" tab
+3. Scroll to "**Build**" section
+4. Find the "**Builder**" dropdown
+5. **Change it from "Docker" to "Railpack"** (or "Nixpacks" to "Railpack")
+6. **Save** the settings
+7. Click "**Deployments**" tab → Click "**Redeploy**" button
+
+**Why this happens:** Railway may have auto-detected Docker or you may have selected it during initial setup. The `railway.json` file alone is not enough - you must also set it in the dashboard.
+
+**Verify it worked:**
+- After redeploy, check build logs
+- You should NOT see "Dockerfile" in the logs
+- You should see Railpack detecting Node.js
+- Build should proceed with npm commands working
+
+**Option 2: Verify railway.json Configuration**
 
 1. Ensure `backend/railway.json` specifies Railpack:
    ```json
@@ -487,14 +516,9 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
    ```
 
 2. Commit and push the updated `railway.json` file
-3. In Railway service settings:
-   - Go to "**Settings**" → "**Build**"
-   - Ensure "**Builder**" is set to "**Railpack**" (not Docker or Nixpacks)
-   - If you see "Docker" or "Nixpacks" selected, change it to "Railpack"
-   - **Note:** Nixpacks is deprecated, use Railpack instead
-4. **Redeploy** the service
+3. **Still change the Builder in Railway dashboard** (see Option 1 above)
 
-**Option 2: Verify Root Directory**
+**Option 3: Verify Root Directory**
 
 1. Go to backend service → "**Settings**"
 2. Under "**Build**", verify:
@@ -503,26 +527,81 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
 3. If Root Directory is not set, set it to `backend`
 4. **Redeploy**
 
-**Option 3: Check railway.json Location**
+**Option 4: Check railway.json Location**
 
 - Ensure `backend/railway.json` exists (not just root `railway.json`)
 - The `backend/railway.json` should have `"builder": "RAILPACK"`
 - Root `railway.json` is for monorepo setup, but when Root Directory is `backend`, Railway should use `backend/railway.json`
 
-**Option 4: Ensure Node.js Detection**
+**Option 5: Ensure Node.js Detection**
 
 Railpack should automatically detect Node.js from:
-- `package.json` with `engines.node` field
-- `.nvmrc` file (if present)
+- `package.json` with `engines.node` field (in the Root Directory)
+- `.nvmrc` file (in the Root Directory)
 - If detection fails, add environment variable:
   - **Key:** `RAILWAY_NODE_VERSION`
   - **Value:** `20` (or `18` if backend requires 18)
+
+**Option 6: Root railway.json Conflict (If Railway Shows "The value is set in railway.json")**
+
+**If Railway is using Railpack but still shows "npm: command not found":**
+
+The issue might be that Railway is using the **root `railway.json`** (which has `cd backend &&`) instead of `backend/railway.json`, even though Root Directory is set to `backend`.
+
+**Quick Fix (Try This First):**
+
+1. Go to backend service → **Settings** → **Build**
+2. **Clear the Build Command field** (delete any value like `cd backend && npm install && npm run build`)
+3. **Clear the Start Command field** (delete any value like `cd backend && npm start`)
+4. Ensure **Root Directory:** `backend` is set
+5. Ensure **Builder:** `Railpack` is selected
+6. **Save** settings
+7. **Redeploy**
+
+This forces Railway to use `backend/railway.json` instead of the root one.
+
+**If Quick Fix Doesn't Work:**
+
+1. **Delete or rename the root `railway.json`** (temporarily):
+   ```bash
+   # Rename it so Railway doesn't use it
+   mv railway.json railway.json.backup
+   git add railway.json.backup
+   git commit -m "Temporarily disable root railway.json"
+   git push
+   ```
+
+2. **Verify Root Directory is set:**
+   - Go to backend service → Settings → Build
+   - Ensure **Root Directory:** `backend` is set
+   - Railway should now use `backend/railway.json`
+
+3. **Redeploy**
+
+4. **Alternative:** If you need the root `railway.json` for other services, ensure it doesn't have build commands that conflict. The root one should only be used if Root Directory is NOT set.
+
+**Option 7: Add Node.js Detection Hint**
+
+If Railpack still doesn't detect Node.js, create a `package.json` in the root (minimal) to help detection:
+
+```json
+{
+  "name": "root",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+```
+
+Or ensure `.nvmrc` exists in root with `20` (if you want Node 20).
 
 **Verification:**
 - After redeploy, check build logs
 - You should see Railpack detecting Node.js
 - Build should proceed with npm commands working
-- Look for messages like "Detected Node.js" in build logs
+- Look for messages like "Detected Node.js" or "Installing Node.js" in build logs
+- The build command should NOT include `cd backend &&` if Root Directory is set correctly
 
 ### Setback 4: "Can't reach database server" or Connection Timeout
 

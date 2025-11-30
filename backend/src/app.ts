@@ -8,7 +8,10 @@ import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'https://precious-education-production.up.railway.app',
+    credentials: true
+  }));
 app.use(express.json());
 app.use(morgan('dev'));
 
