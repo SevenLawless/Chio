@@ -26,10 +26,10 @@ Before starting, ensure you have:
 - ✅ **Node.js 20+** (Railway will use Node 20 automatically via `nixpacks.toml`)
 
 **Note:** 
-- This project includes `nixpacks.toml` configuration files in both `backend/` and `frontend/` directories
-- These files automatically configure Node 20 and build/start commands
-- The project also includes `.nvmrc` files specifying Node 20
-- Railway will automatically detect and use these configurations
+- This project includes `.nvmrc` files in both `backend/` and `frontend/` directories specifying Node 20
+- Both `package.json` files have `engines` fields requiring Node 20+
+- Railway will automatically detect Node 20 from `.nvmrc` files
+- If Railway still uses Node 18, add environment variable `RAILWAY_NODE_VERSION=20` in Railway settings
 - If Railway still can't detect them, you'll need to manually configure the Root Directory in Railway settings
 
 ---
@@ -108,12 +108,25 @@ your-repo/
    - **Start Command:** `npm start` (or leave empty - `railway.json` will handle it)
 
 **Note:** 
-- The project includes `backend/nixpacks.toml` which automatically configures Node 20 and build/start commands
-- The project also includes `backend/.nvmrc` specifying Node 20
-- Railway will automatically use Node 20 based on these configuration files
-- If Railway still can't detect it, manually set the Root Directory to `backend`
+- The project includes `backend/.nvmrc` specifying Node 20
+- The `backend/package.json` has `engines` field requiring Node >=18.0.0
+- Railway will automatically detect Node 20 from `.nvmrc` file
+- If Railway still uses Node 18, add environment variable: `RAILWAY_NODE_VERSION=20` in Railway settings (see below)
 
-### Step 4: Link MySQL Database to Backend Service
+### Step 4: Set Node.js Version (If Needed)
+
+**If Railway is still using Node 18 instead of Node 20:**
+
+1. In the backend service, go to "**Variables**" tab
+2. Click "**+ New Variable**" → "**Raw Variable**"
+3. Add:
+   - Key: `RAILWAY_NODE_VERSION`
+   - Value: `20`
+4. Save and redeploy
+
+**Note:** Railway should auto-detect Node 20 from `.nvmrc`, but this environment variable ensures it uses Node 20.
+
+### Step 5: Link MySQL Database to Backend Service
 
 **CRITICAL:** Before setting environment variables, you must link the MySQL database:
 
@@ -142,7 +155,7 @@ NODE_ENV=production
 - **DO NOT set PORT** - Railway automatically provides this via `process.env.PORT`
 - Make sure MySQL service name matches exactly (case-sensitive)
 
-### Step 5: Deploy Backend
+### Step 6: Deploy Backend
 
 1. Click "**Deploy**"
 2. Railway will build and deploy your backend
@@ -175,9 +188,10 @@ NODE_ENV=production
    - **Start Command:** (leave empty - `nixpacks.toml` will handle it)
 
 **Note:** 
-- The project includes `frontend/nixpacks.toml` which automatically configures Node 20 and build/start commands
-- The project also includes `frontend/.nvmrc` specifying Node 20
-- Railway will automatically use Node 20 based on these configuration files
+- The project includes `frontend/.nvmrc` specifying Node 20
+- The `frontend/package.json` has `engines` field requiring Node >=20.0.0
+- Railway will automatically detect Node 20 from `.nvmrc` file
+- If Railway still uses Node 18, add environment variable: `RAILWAY_NODE_VERSION=20` in Railway settings
 - The `serve` package is configured to serve the built static files
 
 ### Step 3: Set Environment Variables
