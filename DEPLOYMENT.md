@@ -126,15 +126,18 @@ your-repo/
 ```json
 {
   "build": {
-    "buildCommand": "cd backend && npm install && npm run build"
+    "builder": "RAILPACK",
+    "buildCommand": "npm install && npm run build"
   },
   "deploy": {
-    "startCommand": "cd backend && npm start"
+    "startCommand": "npm start"
   }
 }
 ```
 
 But since Root Directory is set to `backend`, Railway will run commands from that directory automatically.
+
+**Important:** Railway uses **Railpack** (not Nixpacks) as the default builder. The `railway.json` files are configured to use Railpack. If you encounter "npm: command not found" errors, see [Setback 3: npm: command not found](#setback-3-npm-command-not-found-or-docker-build-error) below.
 
 ### Step 4: Set Node.js Version (If Needed)
 
@@ -313,6 +316,7 @@ app.use(cors({
 ```json
 {
   "build": {
+    "builder": "RAILPACK",
     "buildCommand": "npm install && npm run build"
   },
   "deploy": {
@@ -320,6 +324,8 @@ app.use(cors({
   }
 }
 ```
+
+**Important:** Railway uses **Railpack** (not Nixpacks) as the default builder. The `railway.json` files are configured to use Railpack. If you encounter "npm: command not found" errors, see [Setback 3: npm: command not found](#setback-3-npm-command-not-found-or-docker-build-error) below.
 
 ### Step 3: Set Node.js Version (If Needed)
 
@@ -457,7 +463,68 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
    - Verify it shows a proper connection string like `mysql://user:pass@host:port/db`
 5. **Redeploy** after fixing
 
-### Setback 3: "Can't reach database server" or Connection Timeout
+### Setback 3: "npm: command not found" or Docker Build Error
+
+**Symptoms:**
+- Build fails with: `npm: command not found`
+- Error: `Docker build failed` or `failed to solve`
+- Railway is trying to use Docker instead of Railpack
+
+**Root Cause:** Railway is defaulting to Docker build instead of Railpack, and Node.js/npm is not available in the Docker image.
+
+**Solution:**
+
+**Option 1: Force Railpack Builder (Recommended)**
+
+1. Ensure `backend/railway.json` specifies Railpack:
+   ```json
+   {
+     "build": {
+       "builder": "RAILPACK",
+       "buildCommand": "npm install && npm run build"
+     }
+   }
+   ```
+
+2. Commit and push the updated `railway.json` file
+3. In Railway service settings:
+   - Go to "**Settings**" → "**Build**"
+   - Ensure "**Builder**" is set to "**Railpack**" (not Docker or Nixpacks)
+   - If you see "Docker" or "Nixpacks" selected, change it to "Railpack"
+   - **Note:** Nixpacks is deprecated, use Railpack instead
+4. **Redeploy** the service
+
+**Option 2: Verify Root Directory**
+
+1. Go to backend service → "**Settings**"
+2. Under "**Build**", verify:
+   - **Root Directory:** `backend` (must be set correctly)
+   - Railway should use `backend/railway.json` when Root Directory is `backend`
+3. If Root Directory is not set, set it to `backend`
+4. **Redeploy**
+
+**Option 3: Check railway.json Location**
+
+- Ensure `backend/railway.json` exists (not just root `railway.json`)
+- The `backend/railway.json` should have `"builder": "RAILPACK"`
+- Root `railway.json` is for monorepo setup, but when Root Directory is `backend`, Railway should use `backend/railway.json`
+
+**Option 4: Ensure Node.js Detection**
+
+Railpack should automatically detect Node.js from:
+- `package.json` with `engines.node` field
+- `.nvmrc` file (if present)
+- If detection fails, add environment variable:
+  - **Key:** `RAILWAY_NODE_VERSION`
+  - **Value:** `20` (or `18` if backend requires 18)
+
+**Verification:**
+- After redeploy, check build logs
+- You should see Railpack detecting Node.js
+- Build should proceed with npm commands working
+- Look for messages like "Detected Node.js" in build logs
+
+### Setback 4: "Can't reach database server" or Connection Timeout
 
 **Symptoms:**
 - Database connection fails
@@ -470,7 +537,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
 4. Verify MySQL service is not crashed (restart if needed)
 5. Check if MySQL service has public networking enabled (usually not needed)
 
-### Setback 4: CORS Errors in Browser
+### Setback 5: CORS Errors in Browser
 
 **Symptoms:**
 - Browser console shows: `Access to fetch at '...' from origin '...' has been blocked by CORS policy`
@@ -488,7 +555,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
    ```
 4. Commit, push, and redeploy backend
 
-### Setback 5: Frontend Shows 404 on API Calls
+### Setback 6: Frontend Shows 404 on API Calls
 
 **Symptoms:**
 - Frontend loads but API calls return 404
@@ -507,7 +574,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
    - Verify backend is running
    - Test backend health: `https://your-backend-url.railway.app/health`
 
-### Setback 6: Node Version Mismatch
+### Setback 7: Node Version Mismatch
 
 **Symptoms:**
 - Build fails with version errors
@@ -520,7 +587,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
 2. **Redeploy** after adding variable
 3. Verify in build logs that correct Node version is used
 
-### Setback 7: Environment Variable Not Working
+### Setback 8: Environment Variable Not Working
 
 **Symptoms:**
 - Variable is set but code doesn't see it
@@ -537,7 +604,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
    - Require full rebuild (not accessible at runtime)
    - Changes require redeploy
 
-### Setback 8: Database Migration Errors
+### Setback 9: Database Migration Errors
 
 **Symptoms:**
 - Migrations fail to apply
@@ -561,7 +628,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
    ```
    Then redeploy backend
 
-### Setback 9: Port Already in Use
+### Setback 10: Port Already in Use
 
 **Symptoms:**
 - Build fails with port error
@@ -575,7 +642,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
   const port = process.env.PORT || 4000;
   ```
 
-### Setback 10: Build Fails with TypeScript Errors
+### Setback 11: Build Fails with TypeScript Errors
 
 **Symptoms:**
 - Build fails during `npm run build`
