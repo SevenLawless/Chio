@@ -2,6 +2,22 @@
 
 Complete guide for deploying CHIO to Railway with MySQL database.
 
+## 🚨 Quick Fix: "Missing DATABASE_URL" Error
+
+**If you're seeing "Missing required environment variable: DATABASE_URL":**
+
+1. Go to your Railway project → Backend service
+2. Click "**Variables**" tab
+3. Click "**+ New Variable**" → "**Reference Variable**"
+4. Select your **MySQL service** (the database service, not "railway")
+5. Choose "**DATABASE_URL**" from the dropdown
+6. **Verify** it shows a connection string like `mysql://user:pass@host:port/db`
+7. Click "**Deployments**" → "**Redeploy**" (or trigger a new deployment)
+
+**Still not working?** See [Step 5: Link MySQL Database](#step-5-link-mysql-database-to-backend-service) below for detailed instructions.
+
+---
+
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
@@ -137,26 +153,56 @@ your-repo/
 3. Click "**+ New Variable**"
 4. Select "**Reference Variable**" (or "**Add from Service**")
 5. **Important:** You'll see a dropdown with your services - select your **MySQL service** (not "railway" or any other service)
-6. From the available variables, select "**DATABASE_URL**"
-7. Railway will automatically create: `DATABASE_URL=${{YourMySQLServiceName.DATABASE_URL}}`
+6. Look for one of these variables (in order of preference):
+   - `MYSQL_URL` (if available - this is the full connection string)
+   - `DATABASE_URL` (if available)
+   - If neither exists, use **Method 2** below to construct it manually
 
-**Verify it worked:**
-- The variable should show a value like: `mysql://user:password@host:port/database`
-- If it shows just `railway` or `${{MySQL.DATABASE_URL}}` as plain text, it didn't work correctly
+**If MYSQL_URL or DATABASE_URL is available:**
+- Select it from the dropdown
+- Railway will automatically create: `DATABASE_URL=${{YourMySQLServiceName.MYSQL_URL}}`
+- **Verify it worked:** The variable should show a value like: `mysql://user:password@host:port/database`
 
-#### Method 2: Manual Setup (If Method 1 doesn't work)
+**If only individual MySQL variables are available (MYSQL_HOST, MYSQL_DATABASE, etc.):**
+- Use **Method 2** below to construct the connection string manually
 
-1. In backend service, go to "**Variables**" tab
-2. Click "**+ New Variable**" → "**Raw Variable**"
-3. Add:
+#### Method 2: Construct DATABASE_URL from Individual MySQL Variables
+
+**If Railway only shows individual MySQL variables (MYSQL_HOST, MYSQL_DATABASE, etc.), you need to construct the connection string manually:**
+
+1. In your Railway project, click on your **MySQL service**
+2. Go to "**Variables**" tab
+3. Note down these variables (or reference them):
+   - `MYSQL_HOST` (or `MYSQLHOST`)
+   - `MYSQL_PORT` (or `MYSQLPORT`, usually 3306)
+   - `MYSQL_DATABASE` (or `MYSQLDATABASE`)
+   - `MYSQL_USER` (or `MYSQLUSER`)
+   - `MYSQL_PASSWORD` (or `MYSQLPASSWORD`)
+
+4. Go back to your **backend service** → "**Variables**" tab
+5. Click "**+ New Variable**" → "**Raw Variable**"
+6. Add:
    - **Key:** `DATABASE_URL`
-   - **Value:** `${{YourMySQLServiceName.DATABASE_URL}}`
+   - **Value:** Construct it using Railway's variable references:
+     ```
+     mysql://${{YourMySQLServiceName.MYSQL_USER}}:${{YourMySQLServiceName.MYSQL_PASSWORD}}@${{YourMySQLServiceName.MYSQL_HOST}}:${{YourMySQLServiceName.MYSQL_PORT}}/${{YourMySQLServiceName.MYSQL_DATABASE}}
+     ```
    - **⚠️ Replace `YourMySQLServiceName`** with your actual MySQL service name (check in Railway dashboard - it's case-sensitive!)
+
+**Example:**
+If your MySQL service is named "MySQL", the value would be:
+```
+mysql://${{MySQL.MYSQL_USER}}:${{MySQL.MYSQL_PASSWORD}}@${{MySQL.MYSQL_HOST}}:${{MySQL.MYSQL_PORT}}/${{MySQL.MYSQL_DATABASE}}
+```
 
 **To find your MySQL service name:**
 - Look at your Railway project dashboard
 - Find the MySQL database service
-- The name shown there is what you need (e.g., if it says "MySQL", use `${{MySQL.DATABASE_URL}}`)
+- The name shown there is what you need (e.g., if it says "MySQL", use `MySQL` in the references above)
+
+**Alternative: If variable names are different (MYSQLHOST, MYSQLDATABASE, etc.):**
+- Use the exact variable names as they appear in Railway
+- Example: `${{MySQL.MYSQLHOST}}` instead of `${{MySQL.MYSQL_HOST}}`
 
 **Then add other variables:**
 - `JWT_SECRET` = Generate using: https://generate-secret.vercel.app/64
