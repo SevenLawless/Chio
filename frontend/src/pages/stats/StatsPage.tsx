@@ -78,11 +78,22 @@ const StatsPage = () => {
             </div>
           )}
           {statsQuery.data?.dailyBreakdown.map((day) => {
+            // Calculate percentages, ensuring they don't exceed 100% and add up correctly
+            const total = day.totals.total || 0;
             const percentages = {
-              completed: day.totals.total ? (day.totals.completed / day.totals.total) * 100 : 0,
-              skipped: day.totals.total ? (day.totals.skipped / day.totals.total) * 100 : 0,
-              notStarted: day.totals.total ? (day.totals.notStarted / day.totals.total) * 100 : 0,
+              completed: total > 0 ? Math.min(100, (day.totals.completed / total) * 100) : 0,
+              skipped: total > 0 ? Math.min(100, (day.totals.skipped / total) * 100) : 0,
+              notStarted: total > 0 ? Math.min(100, (day.totals.notStarted / total) * 100) : 0,
             };
+            
+            // Ensure percentages don't exceed 100% total (rounding safety)
+            const totalPercentage = percentages.completed + percentages.skipped + percentages.notStarted;
+            if (totalPercentage > 100) {
+              const scale = 100 / totalPercentage;
+              percentages.completed *= scale;
+              percentages.skipped *= scale;
+              percentages.notStarted *= scale;
+            }
 
             return (
               <div key={day.date} className="rounded-2xl border border-brand-800/30 bg-brand-900/20 p-4">

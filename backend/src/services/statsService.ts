@@ -79,25 +79,35 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     const key = formatISO(day, { representation: 'date' });
     const baseCount = dailyTaskCount + (oneTimeByDay[key] ?? 0);
 
-    const counts: Record<TaskState, number> = {
-      [TaskState.NOT_STARTED]: baseCount,
+    // Count entries by state (entries only exist for tasks that have been interacted with)
+    const dayEntries = entriesByDay[key] ?? [];
+    const entryCounts: Record<TaskState, number> = {
+      [TaskState.NOT_STARTED]: 0,
       [TaskState.COMPLETED]: 0,
       [TaskState.SKIPPED]: 0,
     };
 
-    for (const state of entriesByDay[key] ?? []) {
-      if (counts[TaskState.NOT_STARTED] > 0 && state !== TaskState.NOT_STARTED) {
-        counts[TaskState.NOT_STARTED] -= 1;
-      }
-      counts[state] = (counts[state] ?? 0) + 1;
+    // Count how many entries exist for each state
+    // Limit to baseCount to handle edge cases where entries might exceed tasks
+    const validEntries = dayEntries.slice(0, baseCount);
+    for (const state of validEntries) {
+      entryCounts[state] = (entryCounts[state] ?? 0) + 1;
     }
+
+    // Calculate final counts:
+    // - COMPLETED and SKIPPED come from entries
+    // - NOT_STARTED = baseCount - entries with states (COMPLETED + SKIPPED)
+    const completed = entryCounts[TaskState.COMPLETED];
+    const skipped = entryCounts[TaskState.SKIPPED];
+    const entriesWithState = completed + skipped;
+    const notStarted = Math.max(0, baseCount - entriesWithState);
 
     return {
       date: key,
       totals: {
-        completed: counts[TaskState.COMPLETED],
-        skipped: counts[TaskState.SKIPPED],
-        notStarted: counts[TaskState.NOT_STARTED],
+        completed,
+        skipped,
+        notStarted,
         total: baseCount,
       },
     };
