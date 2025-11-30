@@ -19,7 +19,7 @@ if (!databaseUrl.startsWith('mysql://') && !databaseUrl.startsWith('mysqlx://'))
     `1. Go to your backend service → Variables tab\n` +
     `2. Click "+ New Variable" → "Reference Variable"\n` +
     `3. Select your MySQL service and choose "DATABASE_URL"\n` +
-    `Or manually set: DATABASE_URL=${{YourMySQLServiceName.DATABASE_URL}}`
+    `Or manually set: DATABASE_URL=\${{YourMySQLServiceName.DATABASE_URL}}`
   );
 }
 
