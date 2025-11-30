@@ -1,0 +1,129 @@
+import { useState } from 'react';
+import { subDays } from 'date-fns';
+import { BarChart3 } from 'lucide-react';
+import { useStats } from '../../features/tasks/hooks';
+import { formatDayLabel } from '../../lib/date';
+
+const StatsPage = () => {
+  const [startDate, setStartDate] = useState(() => subDays(new Date(), 6));
+  const [endDate, setEndDate] = useState(() => new Date());
+
+  const statsQuery = useStats(startDate, endDate);
+
+  const totals = statsQuery.data?.aggregates;
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 text-white">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm text-white/60">Range</p>
+            <h2 className="text-2xl font-semibold">Insight window</h2>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <label className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-white/80">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/60">Start</span>
+              <input
+                type="date"
+                value={startDate.toISOString().slice(0, 10)}
+                max={endDate.toISOString().slice(0, 10)}
+                onChange={(event) => setStartDate(new Date(event.target.value))}
+                className="block bg-transparent text-sm text-white focus:outline-none"
+              />
+            </label>
+            <label className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-white/80">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/60">End</span>
+              <input
+                type="date"
+                value={endDate.toISOString().slice(0, 10)}
+                min={startDate.toISOString().slice(0, 10)}
+                onChange={(event) => setEndDate(new Date(event.target.value))}
+                className="block bg-transparent text-sm text-white focus:outline-none"
+              />
+            </label>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          {[
+            { label: 'Completed', value: totals?.completed ?? 0, tone: 'text-emerald-300' },
+            { label: 'Skipped', value: totals?.skipped ?? 0, tone: 'text-rose-300' },
+            { label: 'Not started', value: totals?.notStarted ?? 0, tone: 'text-white' },
+          ].map((metric) => (
+            <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60">{metric.label}</p>
+              <p className={`mt-2 text-3xl font-semibold ${metric.tone}`}>{metric.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/50">Daily rhythm</p>
+            <h3 className="text-xl font-semibold">Breakdown</h3>
+          </div>
+          <BarChart3 className="h-6 w-6 text-white/50" />
+        </div>
+        <div className="mt-6 space-y-4">
+          {statsQuery.isLoading && (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+              <div className="inline-flex items-center gap-2 text-white/70">
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>Loading statistics…</span>
+              </div>
+            </div>
+          )}
+          {statsQuery.data?.dailyBreakdown.map((day) => {
+            const percentages = {
+              completed: day.totals.total ? (day.totals.completed / day.totals.total) * 100 : 0,
+              skipped: day.totals.total ? (day.totals.skipped / day.totals.total) * 100 : 0,
+              notStarted: day.totals.total ? (day.totals.notStarted / day.totals.total) * 100 : 0,
+            };
+
+            return (
+              <div key={day.date} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold">{formatDayLabel(day.date)}</span>
+                  <span className="text-white/60">{day.totals.total} rituals</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-white/10">
+                  <div className="flex h-full overflow-hidden rounded-full">
+                    <span style={{ width: `${percentages.completed}%` }} className="bg-emerald-400" />
+                    <span style={{ width: `${percentages.skipped}%` }} className="bg-rose-400" />
+                    <span style={{ width: `${percentages.notStarted}%` }} className="bg-white/30" />
+                  </div>
+                </div>
+                <div className="mt-2 flex gap-4 text-xs text-white/60">
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                    {day.totals.completed} done
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-rose-400" />
+                    {day.totals.skipped} skipped
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-white/40" />
+                    {day.totals.notStarted} pending
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+          {!statsQuery.isLoading && (statsQuery.data?.dailyBreakdown.length ?? 0) === 0 && (
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-6 text-center text-white/60">
+              No stats for this range. Expand the window above.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default StatsPage;
+
