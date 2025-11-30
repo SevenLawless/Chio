@@ -18,7 +18,7 @@ const parseDate = (value?: string) => {
 
 const defaultRange = () => {
   const end = startOfDay(new Date());
-  const start = addDays(end, -6);
+  const start = startOfDay(parseISO('2025-11-30'));
   return { start, end };
 };
 

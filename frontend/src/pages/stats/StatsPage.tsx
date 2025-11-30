@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { subDays } from 'date-fns';
+import { parseISO, startOfDay } from 'date-fns';
 import { BarChart3 } from 'lucide-react';
 import { useStats } from '../../features/tasks/hooks';
 import { formatDayLabel } from '../../lib/date';
 
 const StatsPage = () => {
-  const [startDate, setStartDate] = useState(() => subDays(new Date(), 6));
-  const [endDate, setEndDate] = useState(() => new Date());
+  const [startDate, setStartDate] = useState(() => startOfDay(parseISO('2025-11-30')));
+  const [endDate, setEndDate] = useState(() => startOfDay(new Date()));
 
   const statsQuery = useStats(startDate, endDate);
 
