@@ -128,32 +128,46 @@ your-repo/
 
 ### Step 5: Link MySQL Database to Backend Service
 
-**CRITICAL:** Before setting environment variables, you must link the MySQL database:
+**⚠️ CRITICAL: This must be done correctly or the backend will crash with "Invalid URL" error!**
+
+#### Method 1: Using Railway's Reference Variable (Recommended)
 
 1. In your Railway project, click on the **backend service**
 2. Go to "**Variables**" tab
 3. Click "**+ New Variable**"
-4. In the dropdown, you should see your MySQL service listed
-5. Select it and choose "**DATABASE_URL**" from the available variables
-6. This will automatically create: `DATABASE_URL=${{MySQL.DATABASE_URL}}`
+4. Select "**Reference Variable**" (or "**Add from Service**")
+5. **Important:** You'll see a dropdown with your services - select your **MySQL service** (not "railway" or any other service)
+6. From the available variables, select "**DATABASE_URL**"
+7. Railway will automatically create: `DATABASE_URL=${{YourMySQLServiceName.DATABASE_URL}}`
 
-**OR manually add:**
-1. Go to "**Variables**" tab
-2. Click "**Raw Editor**"
-3. Add the following variables:
+**Verify it worked:**
+- The variable should show a value like: `mysql://user:password@host:port/database`
+- If it shows just `railway` or `${{MySQL.DATABASE_URL}}` as plain text, it didn't work correctly
 
-```env
-DATABASE_URL=${{MySQL.DATABASE_URL}}
-JWT_SECRET=<generate-a-long-random-secret-key>
-JWT_EXPIRES_IN=7d
-NODE_ENV=production
-```
+#### Method 2: Manual Setup (If Method 1 doesn't work)
+
+1. In backend service, go to "**Variables**" tab
+2. Click "**+ New Variable**" → "**Raw Variable**"
+3. Add:
+   - **Key:** `DATABASE_URL`
+   - **Value:** `${{YourMySQLServiceName.DATABASE_URL}}`
+   - **⚠️ Replace `YourMySQLServiceName`** with your actual MySQL service name (check in Railway dashboard - it's case-sensitive!)
+
+**To find your MySQL service name:**
+- Look at your Railway project dashboard
+- Find the MySQL database service
+- The name shown there is what you need (e.g., if it says "MySQL", use `${{MySQL.DATABASE_URL}}`)
+
+**Then add other variables:**
+- `JWT_SECRET` = Generate using: https://generate-secret.vercel.app/64
+- `JWT_EXPIRES_IN` = `7d`
+- `NODE_ENV` = `production`
 
 **Important Notes:**
-- `${{MySQL.DATABASE_URL}}` - Replace `MySQL` with your actual MySQL service name (check in Railway dashboard)
-- Generate JWT_SECRET using: `openssl rand -base64 64` (or visit https://generate-secret.vercel.app/64)
+- The DATABASE_URL must resolve to a full MySQL connection string starting with `mysql://`
+- If you see "Invalid URL" error, the DATABASE_URL is not set correctly
 - **DO NOT set PORT** - Railway automatically provides this via `process.env.PORT`
-- Make sure MySQL service name matches exactly (case-sensitive)
+- After setting variables, **redeploy** the service (Railway doesn't auto-restart)
 
 ### Step 6: Deploy Backend
 
@@ -330,11 +344,29 @@ app.use(cors({
      5. **Redeploy** after adding variables (Railway doesn't auto-restart)
 
    ```
+   TypeError: Invalid URL
+   input: 'railway'
+   ```
+   → **This means DATABASE_URL is not set correctly!**
+   → **Solution:**
+     1. Go to backend service → Variables tab
+     2. Check the `DATABASE_URL` variable value
+     3. It should be a full MySQL connection string like: `mysql://user:pass@host:port/db`
+     4. If it shows just `railway` or `${{MySQL.DATABASE_URL}}` as plain text, it's not resolved
+     5. **Fix it:**
+        - Delete the incorrect `DATABASE_URL` variable
+        - Click "+ New Variable" → "Reference Variable"
+        - Select your **MySQL service** (not "railway")
+        - Choose "DATABASE_URL" from the dropdown
+        - Verify it shows a proper connection string
+     6. **Redeploy** after fixing
+
+   ```
    Error: Can't reach database server
    ```
-   → Check DATABASE_URL is correct
+   → Check DATABASE_URL is correct (should start with `mysql://`)
    → Ensure MySQL service is running
-   → Verify MySQL service is linked
+   → Verify MySQL service is linked correctly
 
 3. **Database Connection:**
    - Ensure `DATABASE_URL` uses Railway's MySQL reference: `${{MySQL.DATABASE_URL}}`
