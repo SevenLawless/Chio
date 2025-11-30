@@ -36,15 +36,15 @@ export const TaskCard = ({ task, onCycleState, onEdit, onDelete }: TaskCardProps
   const copy = stateCopy[task.currentState];
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-white/10">
+    <div className="rounded-3xl border border-brand-800/30 bg-brand-900/20 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-brand-900/30 hover:border-brand-700/40">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-semibold">{task.title}</h3>
             {task.taskType === 'DAILY' ? (
-              <Badge className="bg-emerald-500/10 text-emerald-200">Daily</Badge>
+              <Badge className="bg-white/10 text-white border border-white/20">Daily</Badge>
             ) : (
-              <Badge className="bg-sky-500/10 text-sky-200">One-time</Badge>
+              <Badge className="bg-white/10 text-white border border-white/20">One-time</Badge>
             )}
           </div>
           {task.description && <p className="mt-2 text-sm text-white/70">{task.description}</p>}

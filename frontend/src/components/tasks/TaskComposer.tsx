@@ -59,8 +59,8 @@ export const TaskComposer = ({ defaultValues, onSubmit, mode, isSubmitting }: Ta
             <label
               key={type}
               className={twMerge(
-                'cursor-pointer rounded-2xl border border-white/10 px-4 py-3 transition',
-                taskType === type ? 'border-white bg-white/10 text-white' : 'text-white/60 hover:border-white/30',
+                'cursor-pointer rounded-2xl border border-brand-800/30 px-4 py-3 transition',
+                taskType === type ? 'border-brand-500 bg-brand-500/20 text-white' : 'text-white/60 hover:border-brand-700/40 hover:bg-brand-900/10',
               )}
             >
               <input type="radio" value={type} className="hidden" {...register('taskType')} />
@@ -101,7 +101,7 @@ export const TaskComposer = ({ defaultValues, onSubmit, mode, isSubmitting }: Ta
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-white/90 disabled:opacity-50"
+        className="w-full rounded-2xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
       >
         {isSubmitting ? 'Saving…' : mode === 'create' ? 'Save task' : 'Update task'}
       </button>

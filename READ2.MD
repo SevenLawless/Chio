@@ -1,6 +1,6 @@
-# TaskFlow Studio - Railway Deployment Guide
+# CHIO - Railway Deployment Guide
 
-Complete guide for deploying TaskFlow Studio to Railway with MySQL database.
+Complete guide for deploying CHIO to Railway with MySQL database.
 
 ## Table of Contents
 
@@ -41,7 +41,7 @@ git add .
 git commit -m "Initial commit"
 
 # Create repository on GitHub, then:
-git remote add origin https://github.com/YOUR_USERNAME/taskflow-studio.git
+git remote add origin https://github.com/YOUR_USERNAME/chio.git
 git branch -M main
 git push -u origin main
 ```
@@ -74,7 +74,7 @@ your-repo/
 1. Go to https://railway.app/new
 2. Click "Deploy from GitHub repo"
 3. Authorize Railway to access your GitHub
-4. Select your `taskflow-studio` repository
+4. Select your `chio` repository
 
 ### Step 2: Add MySQL Database
 

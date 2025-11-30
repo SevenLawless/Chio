@@ -71,7 +71,7 @@ const LoginPage = () => {
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        className="flex w-full items-center justify-center rounded-2xl bg-brand-500 px-4 py-3 text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-800/50"
       >
         {mutation.isPending ? 'Signing in…' : 'Enter workspace'}
       </button>

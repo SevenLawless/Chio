@@ -20,6 +20,9 @@ const DailyTasksPage = () => {
   const updateState = useSetTaskState(selectedDate);
 
   const tasks = useMemo(() => tasksQuery.data?.filter((task) => !task.isCancelled) ?? [], [tasksQuery.data]);
+  
+  const dailyTasks = useMemo(() => tasks.filter((task) => task.taskType === 'DAILY'), [tasks]);
+  const oneTimeTasks = useMemo(() => tasks.filter((task) => task.taskType === 'ONE_TIME'), [tasks]);
 
   const openCreateModal = () => {
     setEditingTask(null);
@@ -66,13 +69,13 @@ const DailyTasksPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-gradient-to-br from-brand-500/20 via-slate-900 to-slate-950 p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-3xl border border-brand-800/30 bg-gradient-to-br from-brand-900/40 via-slate-900 to-black p-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-white/70">Focus date</p>
           <h2 className="text-2xl font-semibold text-white">{format(selectedDate, 'EEEE, MMMM d')}</h2>
         </div>
         <div className="flex flex-wrap gap-3">
-          <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white/80">
+          <label className="flex items-center gap-3 rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
             <CalendarDays className="h-4 w-4" />
             <input
               type="date"
@@ -99,8 +102,8 @@ const DailyTasksPage = () => {
       )}
 
       {isLoading ? (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center">
-          <div className="inline-flex items-center gap-2 text-white/70">
+        <div className="rounded-3xl border border-brand-800/30 bg-brand-900/20 p-6 text-center">
+          <div className="inline-flex items-center gap-2 text-brand-300">
             <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -109,21 +112,68 @@ const DailyTasksPage = () => {
           </div>
         </div>
       ) : !tasksQuery.isError && tasks.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center text-white/70">
+        <div className="rounded-3xl border border-dashed border-brand-800/30 bg-brand-900/10 p-10 text-center text-white/70">
           <p>No tasks for this day.</p>
-          <p className="mt-2 text-sm">Click "New task" to get started.</p>
+          <p className="mt-2 text-sm text-brand-300">Click "New task" to get started.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onCycleState={(next) => cycleState(task.id, next)}
-              onEdit={() => openEditModal(task)}
-              onDelete={() => removeTask(task.id)}
-            />
-          ))}
+        <div className="space-y-8">
+          {/* Daily Tasks Section */}
+          {dailyTasks.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-white" />
+                  Daily Rituals
+                </h3>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+              </div>
+              <div className="space-y-4">
+                {dailyTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onCycleState={(next) => cycleState(task.id, next)}
+                    onEdit={() => openEditModal(task)}
+                    onDelete={() => removeTask(task.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* One-Time Tasks Section */}
+          {oneTimeTasks.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-white" />
+                  One-Time Missions
+                </h3>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+              </div>
+              <div className="space-y-4">
+                {oneTimeTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onCycleState={(next) => cycleState(task.id, next)}
+                    onEdit={() => openEditModal(task)}
+                    onDelete={() => removeTask(task.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state if both sections are empty but tasks array has items (shouldn't happen, but safety check) */}
+          {dailyTasks.length === 0 && oneTimeTasks.length === 0 && tasks.length > 0 && (
+            <div className="rounded-3xl border border-dashed border-brand-800/30 bg-brand-900/10 p-10 text-center text-white/70">
+              <p>No tasks for this day.</p>
+            </div>
+          )}
         </div>
       )}
 

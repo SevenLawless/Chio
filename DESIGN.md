@@ -1,6 +1,6 @@
-# TaskFlow Studio - Design System
+# CHIO - Design System
 
-Complete guide for customizing the visual design of TaskFlow Studio.
+Complete guide for customizing the visual design of CHIO.
 
 ## Table of Contents
 
@@ -21,21 +21,21 @@ Complete guide for customizing the visual design of TaskFlow Studio.
 
 ```javascript
 brand: {
-  50: '#f5f4ff',   // Lightest - hover states
-  100: '#ebe9ff',  // Very light backgrounds
-  200: '#d8d4ff',  // Light backgrounds
-  300: '#b9b1ff',  // Borders
-  400: '#9586ff',  // Secondary text
-  500: '#6b56ff',  // Primary brand color (main purple)
-  600: '#4c35e5',  // Darker brand
-  700: '#3625b3',  // Even darker
-  800: '#261a80',  // Very dark
-  900: '#180f4d',  // Darkest
+  50: '#e8f5e9',   // Lightest - hover states
+  100: '#c8e6c9',  // Very light backgrounds
+  200: '#a5d6a7',  // Light backgrounds
+  300: '#81c784',  // Borders
+  400: '#66bb6a',  // Secondary text
+  500: '#4a9d6e',  // Primary brand color (main green)
+  600: '#3d7c5f',  // Darker brand
+  700: '#2d5a3d',  // Even darker
+  800: '#1a4d3a',  // Very dark
+  900: '#0d2818',  // Darkest green
 }
 ```
 
 **Used in:**
-- Auth layout gradient: `from-brand-500 via-indigo-600`
+- Auth layout background image with dark green accents
 - Buttons and interactive elements
 - Focus states
 
@@ -302,7 +302,7 @@ colors: {
 
 **To add image logo:**
 ```tsx
-<img src="/logo.svg" alt="TaskFlow" className="h-10 w-10" />
+<img src="/logo.svg" alt="CHIO" className="h-10 w-10" />
 ```
 
 ### 4. Change Font

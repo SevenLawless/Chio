@@ -7,7 +7,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     <textarea
       ref={ref}
       className={twMerge(
-        'w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-base text-white placeholder:text-white/40 outline-none focus:border-white focus:bg-white/10',
+        'w-full rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-3 text-base text-white placeholder:text-white/40 outline-none focus:border-brand-500 focus:bg-brand-900/30',
         className,
       )}
       {...props}

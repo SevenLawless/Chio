@@ -14,14 +14,14 @@ const StatsPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 text-white">
+      <div className="rounded-3xl border border-brand-800/30 bg-gradient-to-br from-brand-900/40 via-slate-900 to-black p-6 text-white">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm text-white/60">Range</p>
             <h2 className="text-2xl font-semibold">Insight window</h2>
           </div>
           <div className="flex flex-wrap gap-3">
-            <label className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-white/80">
+            <label className="rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
               <span className="text-xs uppercase tracking-[0.2em] text-white/60">Start</span>
               <input
                 type="date"
@@ -31,7 +31,7 @@ const StatsPage = () => {
                 className="block bg-transparent text-sm text-white focus:outline-none"
               />
             </label>
-            <label className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-white/80">
+            <label className="rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
               <span className="text-xs uppercase tracking-[0.2em] text-white/60">End</span>
               <input
                 type="date"
@@ -45,11 +45,11 @@ const StatsPage = () => {
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           {[
-            { label: 'Completed', value: totals?.completed ?? 0, tone: 'text-emerald-300' },
+            { label: 'Completed', value: totals?.completed ?? 0, tone: 'text-brand-400' },
             { label: 'Skipped', value: totals?.skipped ?? 0, tone: 'text-rose-300' },
             { label: 'Not started', value: totals?.notStarted ?? 0, tone: 'text-white' },
           ].map((metric) => (
-            <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div key={metric.label} className="rounded-2xl border border-brand-800/30 bg-brand-900/20 p-4">
               <p className="text-xs uppercase tracking-[0.3em] text-white/60">{metric.label}</p>
               <p className={`mt-2 text-3xl font-semibold ${metric.tone}`}>{metric.value}</p>
             </div>
@@ -57,7 +57,7 @@ const StatsPage = () => {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-white">
+      <div className="rounded-3xl border border-brand-800/30 bg-brand-900/20 p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-white/50">Daily rhythm</p>
@@ -67,8 +67,8 @@ const StatsPage = () => {
         </div>
         <div className="mt-6 space-y-4">
           {statsQuery.isLoading && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-              <div className="inline-flex items-center gap-2 text-white/70">
+            <div className="rounded-2xl border border-brand-800/30 bg-brand-900/20 p-6 text-center">
+              <div className="inline-flex items-center gap-2 text-brand-300">
                 <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -85,21 +85,21 @@ const StatsPage = () => {
             };
 
             return (
-              <div key={day.date} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div key={day.date} className="rounded-2xl border border-brand-800/30 bg-brand-900/20 p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-semibold">{formatDayLabel(day.date)}</span>
                   <span className="text-white/60">{day.totals.total} rituals</span>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-white/10">
                   <div className="flex h-full overflow-hidden rounded-full">
-                    <span style={{ width: `${percentages.completed}%` }} className="bg-emerald-400" />
+                    <span style={{ width: `${percentages.completed}%` }} className="bg-brand-500" />
                     <span style={{ width: `${percentages.skipped}%` }} className="bg-rose-400" />
                     <span style={{ width: `${percentages.notStarted}%` }} className="bg-white/30" />
                   </div>
                 </div>
                 <div className="mt-2 flex gap-4 text-xs text-white/60">
                   <span className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                    <span className="h-2 w-2 rounded-full bg-brand-500" />
                     {day.totals.completed} done
                   </span>
                   <span className="flex items-center gap-1">
@@ -115,8 +115,9 @@ const StatsPage = () => {
             );
           })}
           {!statsQuery.isLoading && (statsQuery.data?.dailyBreakdown.length ?? 0) === 0 && (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-6 text-center text-white/60">
-              No stats for this range. Expand the window above.
+            <div className="rounded-2xl border border-dashed border-brand-800/30 bg-brand-900/10 p-6 text-center text-white/60">
+              <p>No stats for this range.</p>
+              <p className="mt-2 text-sm text-brand-300">Expand the window above.</p>
             </div>
           )}
         </div>

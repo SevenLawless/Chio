@@ -9,7 +9,7 @@ export const ProtectedRoute = () => {
 
   if (!isHydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
         <div className="animate-pulse text-lg">Preparing your workspace…</div>
       </div>
     );

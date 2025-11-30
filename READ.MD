@@ -1,4 +1,4 @@
-# TaskFlow Studio - Setup Guide
+# CHIO - Setup Guide
 
 A modern task management application with daily rituals and one-time missions.
 
