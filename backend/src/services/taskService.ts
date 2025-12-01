@@ -61,16 +61,17 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
   const targetDate = normalizeDate(dateInput);
   const nextDate = addDays(targetDate, 1);
 
-  // Get tasks: DAILY tasks that aren't cancelled OR ONE_TIME tasks for this date
+  // Get tasks: DAILY tasks that aren't cancelled OR ONE_TIME tasks for this exact date
+  // For ONE_TIME tasks, we use DATE() function to ensure exact date match (ignoring time component)
   const tasks = await query<Task>(
     `SELECT * FROM Task 
      WHERE userId = ? 
      AND (
        (taskType = 'DAILY' AND isCancelled = FALSE)
-       OR (taskType = 'ONE_TIME' AND dueDate >= ? AND dueDate < ?)
+       OR (taskType = 'ONE_TIME' AND DATE(dueDate) = DATE(?))
      )
      ORDER BY taskType ASC, createdAt ASC`,
-    [userId, targetDate, nextDate]
+    [userId, targetDate]
   );
 
   // Get entries for these tasks on this date
