@@ -74,14 +74,15 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
     [userId, targetDate]
   );
 
-  // Get entries for these tasks on this date
+  // Get entries for these tasks on this exact date only
+  // Using DATE() function to ensure exact date match (ignoring time component)
   const taskIds = tasks.map(t => t.id);
   const entries: TaskEntry[] = taskIds.length > 0
     ? await query<TaskEntry>(
         `SELECT * FROM TaskEntry 
          WHERE taskId IN (${taskIds.map(() => '?').join(',')})
-         AND date >= ? AND date < ?`,
-        [...taskIds, targetDate, nextDate]
+         AND DATE(date) = DATE(?)`,
+        [...taskIds, targetDate]
       )
     : [];
 
@@ -242,15 +243,16 @@ export const setTaskState = async (
 
   const targetDate = normalizeDate(dateInput);
 
-  // Check if entry exists
+  // Check if entry exists for this exact date
+  // Using DATE() function to ensure exact date match (ignoring time component)
   const existing = await queryOne<TaskEntry>(
-    'SELECT * FROM TaskEntry WHERE taskId = ? AND date = ?',
+    'SELECT * FROM TaskEntry WHERE taskId = ? AND DATE(date) = DATE(?)',
     [taskId, targetDate]
   );
 
   if (existing) {
     await query(
-      'UPDATE TaskEntry SET state = ? WHERE taskId = ? AND date = ?',
+      'UPDATE TaskEntry SET state = ? WHERE taskId = ? AND DATE(date) = DATE(?)',
       [state, taskId, targetDate]
     );
   } else {
@@ -263,7 +265,7 @@ export const setTaskState = async (
   }
 
   const entry = await queryOne<TaskEntry>(
-    'SELECT * FROM TaskEntry WHERE taskId = ? AND date = ?',
+    'SELECT * FROM TaskEntry WHERE taskId = ? AND DATE(date) = DATE(?)',
     [taskId, targetDate]
   );
 
