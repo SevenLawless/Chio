@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { CalendarDays, Plus } from 'lucide-react';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -11,7 +11,7 @@ import { TaskCard } from '../../components/tasks/TaskCard';
 import { Button } from '../../components/ui/Button';
 
 const DailyTasksPage = () => {
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -142,7 +142,8 @@ const DailyTasksPage = () => {
               value={format(selectedDate, 'yyyy-MM-dd')}
               onChange={(event) => {
                 const value = event.target.value;
-                setSelectedDate(value ? new Date(value) : new Date());
+                // Parse the date input as local date and normalize to start of day
+                setSelectedDate(value ? startOfDay(new Date(value)) : startOfDay(new Date()));
               }}
               className="bg-transparent text-sm text-white focus:outline-none"
             />

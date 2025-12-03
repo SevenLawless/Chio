@@ -8,7 +8,20 @@ const parseDate = (value?: string) => {
     return undefined;
   }
 
-  const parsed = parseISO(value);
+  // Handle date-only strings (YYYY-MM-DD format) the same way as taskService
+  let parsed: Date;
+  
+  // Check if it's a date-only string (YYYY-MM-DD)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    // For date-only strings, parse as local date by creating a date object directly
+    // This avoids timezone conversion issues
+    const [year, month, day] = value.split('-').map(Number);
+    parsed = new Date(year, month - 1, day); // month is 0-indexed
+  } else {
+    // For full ISO strings, use parseISO
+    parsed = parseISO(value);
+  }
+  
   if (!isValid(parsed)) {
     throw new HttpError(400, 'Invalid date format');
   }

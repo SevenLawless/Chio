@@ -41,7 +41,22 @@ const normalizeDate = (dateInput?: string) => {
     return startOfDay(new Date());
   }
 
-  const parsed = parseISO(dateInput);
+  // Handle date-only strings (YYYY-MM-DD format)
+  // parseISO treats date-only strings as UTC midnight, but we want local date
+  // So we parse it and then use startOfDay to ensure we get the local date boundary
+  let parsed: Date;
+  
+  // Check if it's a date-only string (YYYY-MM-DD)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    // For date-only strings, parse as local date by creating a date object directly
+    // This avoids timezone conversion issues
+    const [year, month, day] = dateInput.split('-').map(Number);
+    parsed = new Date(year, month - 1, day); // month is 0-indexed
+  } else {
+    // For full ISO strings, use parseISO
+    parsed = parseISO(dateInput);
+  }
+  
   if (!isValid(parsed)) {
     throw new HttpError(400, 'Invalid date format');
   }
@@ -55,6 +70,7 @@ const normalizeDate = (dateInput?: string) => {
     throw new HttpError(400, 'Date must be between 1970 and 2100');
   }
 
+  // Always normalize to start of day to ensure consistent date boundaries
   return startOfDay(parsed);
 };
 
