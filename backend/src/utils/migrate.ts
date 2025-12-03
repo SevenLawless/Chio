@@ -30,10 +30,18 @@ export async function runMigrations() {
       const sql = await fs.readFile(migrationPath, 'utf-8');
       
       // Split by semicolon and execute each statement
+      // Filter out comments (lines starting with --) and empty statements
       const statements = sql
         .split(';')
         .map(s => s.trim())
-        .filter(s => s.length > 0);
+        .filter(s => {
+          // Skip empty statements
+          if (s.length === 0) return false;
+          // Skip comment-only statements (lines that are only comments)
+          const lines = s.split('\n').map(l => l.trim());
+          const nonCommentLines = lines.filter(l => l.length > 0 && !l.startsWith('--'));
+          return nonCommentLines.length > 0;
+        });
       
       for (const statement of statements) {
         try {
@@ -42,6 +50,11 @@ export async function runMigrations() {
           // Ignore duplicate index/table/column errors (MySQL doesn't support IF NOT EXISTS for some operations)
           if (error.code === 'ER_DUP_KEYNAME' || error.code === 'ER_DUP_ENTRY' || error.code === 'ER_DUP_FIELDNAME') {
             console.log(`[database] ${error.code === 'ER_DUP_FIELDNAME' ? 'Column' : 'Index/constraint'} already exists, skipping: ${statement.substring(0, 50)}...`);
+            continue;
+          }
+          // Ignore unsupported prepared statement errors (usually from comments or unsupported SQL)
+          if (error.code === 'ER_UNSUPPORTED_PS') {
+            console.log(`[database] Skipping unsupported statement (likely a comment): ${statement.substring(0, 50)}...`);
             continue;
           }
           throw error;
