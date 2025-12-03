@@ -52,21 +52,31 @@ const DailyTasksPage = () => {
   const closeModal = () => setIsModalOpen(false);
 
   const handleSave = async (values: { title: string; description?: string; taskType: string; dueDate?: string }) => {
+    // Normalize empty strings to undefined
+    const normalizedDueDate = values.dueDate && values.dueDate.trim() ? values.dueDate.trim() : undefined;
+    const normalizedDescription = values.description && values.description.trim() ? values.description.trim() : null;
+
     if (editingTask) {
+      const payload: { title: string; description?: string | null; dueDate?: string } = {
+        title: values.title,
+        description: normalizedDescription,
+      };
+      
+      // Only include dueDate if it's a ONE_TIME task and has a value
+      if (editingTask.taskType === 'ONE_TIME' && normalizedDueDate) {
+        payload.dueDate = normalizedDueDate;
+      }
+
       await updateTask.mutateAsync({
         taskId: editingTask.id,
-        payload: {
-          title: values.title,
-          description: values.description,
-          dueDate: values.dueDate ?? undefined,
-        },
+        payload,
       });
     } else {
       await createTask.mutateAsync({
         title: values.title,
-        description: values.description,
+        description: normalizedDescription || undefined,
         taskType: values.taskType as Task['taskType'],
-        dueDate: values.dueDate || undefined,
+        dueDate: normalizedDueDate,
       });
     }
     closeModal();
