@@ -52,34 +52,40 @@ const DailyTasksPage = () => {
   const closeModal = () => setIsModalOpen(false);
 
   const handleSave = async (values: { title: string; description?: string; taskType: string; dueDate?: string }) => {
-    // Normalize empty strings to undefined
-    const normalizedDueDate = values.dueDate && values.dueDate.trim() ? values.dueDate.trim() : undefined;
-    const normalizedDescription = values.description && values.description.trim() ? values.description.trim() : null;
+    try {
+      // Normalize empty strings to undefined
+      const normalizedDueDate = values.dueDate && values.dueDate.trim() ? values.dueDate.trim() : undefined;
+      const normalizedDescription = values.description && values.description.trim() ? values.description.trim() : null;
 
-    if (editingTask) {
-      const payload: { title: string; description?: string | null; dueDate?: string } = {
-        title: values.title,
-        description: normalizedDescription,
-      };
-      
-      // Only include dueDate if it's a ONE_TIME task and has a value
-      if (editingTask.taskType === 'ONE_TIME' && normalizedDueDate) {
-        payload.dueDate = normalizedDueDate;
+      if (editingTask) {
+        const payload: { title: string; description?: string | null; dueDate?: string } = {
+          title: values.title,
+          description: normalizedDescription,
+        };
+        
+        // Only include dueDate if it's a ONE_TIME task and has a value
+        if (editingTask.taskType === 'ONE_TIME' && normalizedDueDate) {
+          payload.dueDate = normalizedDueDate;
+        }
+
+        await updateTask.mutateAsync({
+          taskId: editingTask.id,
+          payload,
+        });
+      } else {
+        await createTask.mutateAsync({
+          title: values.title,
+          description: normalizedDescription || undefined,
+          taskType: values.taskType as Task['taskType'],
+          dueDate: normalizedDueDate,
+        });
       }
-
-      await updateTask.mutateAsync({
-        taskId: editingTask.id,
-        payload,
-      });
-    } else {
-      await createTask.mutateAsync({
-        title: values.title,
-        description: normalizedDescription || undefined,
-        taskType: values.taskType as Task['taskType'],
-        dueDate: normalizedDueDate,
-      });
+      // Close modal after successful mutation
+      closeModal();
+    } catch (error) {
+      // Error is handled by React Query, but we don't close the modal on error
+      console.error('Failed to save task:', error);
     }
-    closeModal();
   };
 
   const cycleState = (taskId: string, state: TaskState) => {

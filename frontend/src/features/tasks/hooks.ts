@@ -59,8 +59,15 @@ export const useUpdateTask = (date: Date) => {
         queryClient.setQueryData(taskKey(isoDate), context.previous);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKey(isoDate) });
+    onSuccess: async () => {
+      // Invalidate and refetch to get the complete task data with currentState
+      // The optimistic update provides immediate feedback, then we refetch for accuracy
+      await queryClient.invalidateQueries({ queryKey: taskKey(isoDate) });
+      // Force a refetch to ensure we have the latest data
+      await queryClient.refetchQueries({ 
+        queryKey: taskKey(isoDate),
+        type: 'active',
+      });
     },
   });
 };
