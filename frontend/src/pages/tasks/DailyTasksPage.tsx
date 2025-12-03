@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { CalendarDays, Plus } from 'lucide-react';
-import { useCreateTask, useDeleteTask, useSetTaskState, useTasks, useUpdateTask } from '../../features/tasks/hooks';
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useCreateTask, useDeleteTask, useSetTaskState, useTasks, useUpdateTask, useUpdateTaskOrder } from '../../features/tasks/hooks';
 import type { Task, TaskState } from '../../types/task';
 import Modal from '../../components/ui/Modal';
 import { TaskComposer } from '../../components/tasks/TaskComposer';
@@ -18,8 +20,18 @@ const DailyTasksPage = () => {
   const updateTask = useUpdateTask(selectedDate);
   const deleteTask = useDeleteTask(selectedDate);
   const updateState = useSetTaskState(selectedDate);
+  const updateOrder = useUpdateTaskOrder(selectedDate);
 
-  const tasks = useMemo(() => tasksQuery.data?.filter((task) => !task.isCancelled) ?? [], [tasksQuery.data]);
+  const tasks = useMemo(() => {
+    const filtered = tasksQuery.data?.filter((task) => !task.isCancelled) ?? [];
+    // Sort by order, then by createdAt for consistent ordering
+    return [...filtered].sort((a, b) => {
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+  }, [tasksQuery.data]);
   
   const dailyTasks = useMemo(() => tasks.filter((task) => task.taskType === 'DAILY'), [tasks]);
   const oneTimeTasks = useMemo(() => tasks.filter((task) => task.taskType === 'ONE_TIME'), [tasks]);
@@ -63,6 +75,35 @@ const DailyTasksPage = () => {
 
   const removeTask = (taskId: string) => {
     deleteTask.mutate(taskId);
+  };
+
+  const handleDragEnd = (event: DragEndEvent, taskList: Task[]) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = taskList.findIndex((task) => task.id === active.id);
+    const newIndex = taskList.findIndex((task) => task.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // Create a new array with reordered tasks
+    const reorderedTasks = [...taskList];
+    const [movedTask] = reorderedTasks.splice(oldIndex, 1);
+    reorderedTasks.splice(newIndex, 0, movedTask);
+
+    // Create new order array with sequential orders starting from 0
+    const newOrder = reorderedTasks.map((task, index) => ({
+      taskId: task.id,
+      order: index,
+    }));
+
+    // Update all affected tasks
+    updateOrder.mutate(newOrder);
   };
 
   const isLoading = tasksQuery.isLoading;
@@ -129,17 +170,21 @@ const DailyTasksPage = () => {
                 </h3>
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
               </div>
-              <div className="space-y-4">
-                {dailyTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onCycleState={(next) => cycleState(task.id, next)}
-                    onEdit={() => openEditModal(task)}
-                    onDelete={() => removeTask(task.id)}
-                  />
-                ))}
-              </div>
+              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, dailyTasks)}>
+                <SortableContext items={dailyTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-4">
+                    {dailyTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onCycleState={(next) => cycleState(task.id, next)}
+                        onEdit={() => openEditModal(task)}
+                        onDelete={() => removeTask(task.id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           )}
 
@@ -154,17 +199,21 @@ const DailyTasksPage = () => {
                 </h3>
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
               </div>
-              <div className="space-y-4">
-                {oneTimeTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onCycleState={(next) => cycleState(task.id, next)}
-                    onEdit={() => openEditModal(task)}
-                    onDelete={() => removeTask(task.id)}
-                  />
-                ))}
-              </div>
+              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, oneTimeTasks)}>
+                <SortableContext items={oneTimeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-4">
+                    {oneTimeTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onCycleState={(next) => cycleState(task.id, next)}
+                        onEdit={() => openEditModal(task)}
+                        onDelete={() => removeTask(task.id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           )}
 

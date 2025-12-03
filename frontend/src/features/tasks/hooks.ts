@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
-import { createTask, deleteTask, fetchStats, fetchTasks, setTaskState, updateTask } from './api';
+import { createTask, deleteTask, fetchStats, fetchTasks, setTaskState, updateTask, updateTaskOrder } from './api';
 import type { Task, TaskState, StatsResponse } from '../../types/task';
 import { formatDateParam } from '../../lib/date';
 import { useAuthStore } from '../../store/auth';
@@ -101,6 +101,18 @@ export const useStats = (start: Date, end: Date) => {
     queryKey: statsKey(normalizedStart, normalizedEnd),
     queryFn: () => fetchStats(normalizedStart, normalizedEnd),
     enabled: !!token, // Only fetch when authenticated
+  });
+};
+
+export const useUpdateTaskOrder = (date: Date) => {
+  const isoDate = formatDateParam(date);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (taskOrders: Array<{ taskId: string; order: number }>) => updateTaskOrder(taskOrders),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKey(isoDate) });
+    },
   });
 };
 

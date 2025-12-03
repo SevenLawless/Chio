@@ -69,3 +69,12 @@ export const statsQuerySchema = z.object({
   }),
 });
 
+export const updateTaskOrderSchema = z.object({
+  body: z.array(
+    z.object({
+      taskId: z.string().uuid(),
+      order: z.number().int().min(0),
+    })
+  ).min(1),
+});
+

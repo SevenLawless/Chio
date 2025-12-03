@@ -39,9 +39,9 @@ export async function runMigrations() {
         try {
           await pool.execute(statement);
         } catch (error: any) {
-          // Ignore duplicate index/table errors (MySQL doesn't support IF NOT EXISTS for indexes)
-          if (error.code === 'ER_DUP_KEYNAME' || error.code === 'ER_DUP_ENTRY') {
-            console.log(`[database] Index/constraint already exists, skipping: ${statement.substring(0, 50)}...`);
+          // Ignore duplicate index/table/column errors (MySQL doesn't support IF NOT EXISTS for some operations)
+          if (error.code === 'ER_DUP_KEYNAME' || error.code === 'ER_DUP_ENTRY' || error.code === 'ER_DUP_FIELDNAME') {
+            console.log(`[database] ${error.code === 'ER_DUP_FIELDNAME' ? 'Column' : 'Index/constraint'} already exists, skipping: ${statement.substring(0, 50)}...`);
             continue;
           }
           throw error;

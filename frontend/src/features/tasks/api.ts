@@ -38,3 +38,7 @@ export const fetchStats = async (start: string, end: string) => {
   return response;
 };
 
+export const updateTaskOrder = async (taskOrders: Array<{ taskId: string; order: number }>) => {
+  await api.patch('/tasks/order', taskOrders, { auth: true });
+};
+

@@ -6,6 +6,7 @@ import {
   listTasksForDate,
   setTaskState,
   updateTask,
+  updateTaskOrder,
 } from '../services/taskService';
 
 export const getTasks = async (req: Request, res: Response) => {
@@ -45,5 +46,11 @@ export const setTaskStateHandler = async (req: Request, res: Response) => {
   const payload = req.body as { state: TaskState; date?: string };
   const result = await setTaskState(req.userId as string, req.params.taskId, payload.state, payload.date);
   return res.json(result);
+};
+
+export const updateTaskOrderHandler = async (req: Request, res: Response) => {
+  const payload = req.body as Array<{ taskId: string; order: number }>;
+  await updateTaskOrder(req.userId as string, payload);
+  return res.status(200).json({ success: true });
 };
 

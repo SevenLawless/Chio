@@ -22,6 +22,7 @@ interface Task {
   taskType: TaskType;
   dueDate: Date | null;
   isCancelled: boolean;
+  order: number;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -70,7 +71,7 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
        (taskType = 'DAILY' AND isCancelled = FALSE)
        OR (taskType = 'ONE_TIME' AND DATE(dueDate) = DATE(?))
      )
-     ORDER BY taskType ASC, createdAt ASC`,
+     ORDER BY taskType ASC, \`order\` ASC, createdAt ASC`,
     [userId, targetDate]
   );
 
@@ -97,6 +98,7 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
       taskType: task.taskType,
       dueDate: task.dueDate,
       isCancelled: task.isCancelled,
+      order: task.order,
       currentState: entry?.state ?? TaskState.NOT_STARTED,
       date: targetDate.toISOString(),
       updatedAt: task.updatedAt,
@@ -132,6 +134,13 @@ export const createTask = async (userId: string, input: TaskInput) => {
 
   const now = new Date();
   
+  // Get the maximum order value for this user to set the new task's order
+  const maxOrderResult = await queryOne<{ maxOrder: number }>(
+    'SELECT COALESCE(MAX(`order`), -1) as maxOrder FROM Task WHERE userId = ?',
+    [userId]
+  );
+  const newOrder = (maxOrderResult?.maxOrder ?? -1) + 1;
+  
   if (input.taskType === TaskType.ONE_TIME) {
     if (!input.dueDate) {
       throw new HttpError(400, 'One-time tasks require a due date');
@@ -139,13 +148,13 @@ export const createTask = async (userId: string, input: TaskInput) => {
     const dueDate = normalizeDate(input.dueDate);
     
     await query(
-      'INSERT INTO Task (id, title, description, taskType, dueDate, userId, isCancelled, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description, TaskType.ONE_TIME, dueDate, userId, false, now, now]
+      'INSERT INTO Task (id, title, description, taskType, dueDate, userId, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, title, description, TaskType.ONE_TIME, dueDate, userId, false, newOrder, now, now]
     );
   } else {
     await query(
-      'INSERT INTO Task (id, title, description, taskType, userId, isCancelled, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description, TaskType.DAILY, userId, false, now, now]
+      'INSERT INTO Task (id, title, description, taskType, userId, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, title, description, TaskType.DAILY, userId, false, newOrder, now, now]
     );
   }
 
@@ -195,6 +204,8 @@ export const updateTask = async (userId: string, taskId: string, input: Partial<
     return task;
   }
 
+  // Always update the updatedAt timestamp
+  updates.push('updatedAt = CURRENT_TIMESTAMP(3)');
   values.push(taskId);
   await query(
     `UPDATE Task SET ${updates.join(', ')} WHERE id = ?`,
@@ -275,4 +286,33 @@ export const setTaskState = async (
     date: targetDate.toISOString(),
     updatedAt: entry!.createdAt,
   };
+};
+
+export const updateTaskOrder = async (userId: string, taskOrders: Array<{ taskId: string; order: number }>) => {
+  // Verify all tasks belong to the user
+  const taskIds = taskOrders.map(to => to.taskId);
+  if (taskIds.length === 0) {
+    return;
+  }
+
+  const userTasks = await query<{ id: string }>(
+    `SELECT id FROM Task WHERE id IN (${taskIds.map(() => '?').join(',')}) AND userId = ?`,
+    [...taskIds, userId]
+  );
+
+  if (userTasks.length !== taskIds.length) {
+    throw new HttpError(403, 'Some tasks do not belong to the user');
+  }
+
+  // Update all task orders in a transaction-like manner
+  // Using Promise.all for parallel updates
+  await Promise.all(
+    taskOrders.map(({ taskId, order }) =>
+      query('UPDATE Task SET `order` = ?, updatedAt = CURRENT_TIMESTAMP(3) WHERE id = ? AND userId = ?', [
+        order,
+        taskId,
+        userId,
+      ])
+    )
+  );
 };

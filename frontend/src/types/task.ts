@@ -8,6 +8,7 @@ export interface Task {
   taskType: TaskType;
   dueDate?: string | null;
   isCancelled: boolean;
+  order: number;
   currentState: TaskState;
   date: string;
   createdAt: string;

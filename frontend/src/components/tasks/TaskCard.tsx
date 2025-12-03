@@ -1,7 +1,9 @@
 import type { Task, TaskState } from '../../types/task';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { Check, SkipForward, RotateCcw, Pencil, Trash2 } from 'lucide-react';
+import { Check, SkipForward, RotateCcw, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const stateOrder: TaskState[] = ['NOT_STARTED', 'COMPLETED', 'SKIPPED'];
 
@@ -35,24 +37,50 @@ export const TaskCard = ({ task, onCycleState, onEdit, onDelete }: TaskCardProps
   const nextState = stateOrder[(currentIndex + 1) % stateOrder.length];
   const copy = stateCopy[task.currentState];
 
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   return (
-    <div className="rounded-3xl border border-brand-800/30 bg-brand-900/20 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-brand-900/30 hover:border-brand-700/40">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-3xl border border-brand-800/30 bg-brand-900/20 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-brand-900/30 hover:border-brand-700/40 ${
+        isDragging ? 'cursor-grabbing' : 'cursor-grab'
+      }`}
+    >
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold">{task.title}</h3>
-            {task.taskType === 'DAILY' ? (
-              <Badge className="bg-white/10 text-white border border-white/20">Daily</Badge>
-            ) : (
-              <Badge className="bg-white/10 text-white border border-white/20">One-time</Badge>
+        <div className="flex items-start gap-3 flex-1">
+          <button
+            {...attributes}
+            {...listeners}
+            className="mt-1 cursor-grab active:cursor-grabbing text-white/40 hover:text-white/70 transition-colors touch-none"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="h-5 w-5" />
+          </button>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">{task.title}</h3>
+              {task.taskType === 'DAILY' ? (
+                <Badge className="bg-white/10 text-white border border-white/20">Daily</Badge>
+              ) : (
+                <Badge className="bg-white/10 text-white border border-white/20">One-time</Badge>
+              )}
+            </div>
+            {task.description && <p className="mt-2 text-sm text-white/70">{task.description}</p>}
+            {task.taskType === 'ONE_TIME' && task.dueDate && (
+              <p className="mt-2 text-xs uppercase tracking-[0.3em] text-white/50">
+                Appears {new Date(task.dueDate).toLocaleDateString()}
+              </p>
             )}
           </div>
-          {task.description && <p className="mt-2 text-sm text-white/70">{task.description}</p>}
-          {task.taskType === 'ONE_TIME' && task.dueDate && (
-            <p className="mt-2 text-xs uppercase tracking-[0.3em] text-white/50">
-              Appears {new Date(task.dueDate).toLocaleDateString()}
-            </p>
-          )}
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={onEdit}>
