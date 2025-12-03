@@ -36,7 +36,29 @@ export const useUpdateTask = (date: Date) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ taskId, payload }: { taskId: string; payload: Partial<Task> }) => updateTask(taskId, payload),
+    mutationFn: ({ taskId, payload }: { taskId: string; payload: Partial<{ title: string; description?: string | null; dueDate?: string | null }> }) => 
+      updateTask(taskId, payload),
+    onMutate: async ({ taskId, payload }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: taskKey(isoDate) });
+      // Snapshot previous value
+      const previous = queryClient.getQueryData<Task[]>(taskKey(isoDate));
+      // Optimistically update
+      queryClient.setQueryData<Task[]>(taskKey(isoDate), (tasks = []) =>
+        tasks.map((task) => 
+          task.id === taskId 
+            ? { ...task, ...payload, updatedAt: new Date().toISOString() }
+            : task
+        )
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(taskKey(isoDate), context.previous);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKey(isoDate) });
     },
@@ -110,6 +132,27 @@ export const useUpdateTaskOrder = (date: Date) => {
 
   return useMutation({
     mutationFn: (taskOrders: Array<{ taskId: string; order: number }>) => updateTaskOrder(taskOrders),
+    onMutate: async (taskOrders) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: taskKey(isoDate) });
+      // Snapshot previous value
+      const previous = queryClient.getQueryData<Task[]>(taskKey(isoDate));
+      // Optimistically update order
+      const orderMap = new Map(taskOrders.map(to => [to.taskId, to.order]));
+      queryClient.setQueryData<Task[]>(taskKey(isoDate), (tasks = []) =>
+        tasks.map((task) => {
+          const newOrder = orderMap.get(task.id);
+          return newOrder !== undefined ? { ...task, order: newOrder } : task;
+        })
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(taskKey(isoDate), context.previous);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKey(isoDate) });
     },

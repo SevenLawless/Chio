@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { CalendarDays, Plus } from 'lucide-react';
-import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useCreateTask, useDeleteTask, useSetTaskState, useTasks, useUpdateTask, useUpdateTaskOrder } from '../../features/tasks/hooks';
 import type { Task, TaskState } from '../../types/task';
@@ -25,9 +25,12 @@ const DailyTasksPage = () => {
   const tasks = useMemo(() => {
     const filtered = tasksQuery.data?.filter((task) => !task.isCancelled) ?? [];
     // Sort by order, then by createdAt for consistent ordering
+    // Handle cases where order might be undefined (for existing tasks before migration)
     return [...filtered].sort((a, b) => {
-      if (a.order !== b.order) {
-        return a.order - b.order;
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      if (orderA !== orderB) {
+        return orderA - orderB;
       }
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
