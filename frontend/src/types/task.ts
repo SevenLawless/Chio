@@ -19,9 +19,6 @@ export interface Mission {
   subTasks?: Mission[]; // Nested sub-tasks (only for top-level missions)
 }
 
-// Legacy alias for backward compatibility
-export type Task = Mission;
-
 export interface TaskStateUpdate {
   taskId: string;
   state: TaskState;

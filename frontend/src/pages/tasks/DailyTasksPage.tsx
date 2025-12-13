@@ -60,11 +60,6 @@ const DailyTasksPage = () => {
     let total = 0;
     let completed = 0;
 
-    // #region agent log
-    const missionStates = missions.map(m => ({ id: m.id, title: m.title, state: m.currentState, subTasks: m.subTasks?.map(st => ({ id: st.id, state: st.currentState })) }));
-    fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DailyTasksPage.tsx:progressStats',message:'progressStats recalculating',data:{missionsCount:missions.length,missionStates},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
     missions.forEach((mission) => {
       // Count the mission itself
       total++;
@@ -76,10 +71,6 @@ const DailyTasksPage = () => {
         if (subTask.currentState === 'COMPLETED') completed++;
       });
     });
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DailyTasksPage.tsx:progressStats:result',message:'progressStats result',data:{total,completed,percentage:total>0?Math.round((completed/total)*100):0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
 
     return {
       total,
@@ -149,9 +140,6 @@ const DailyTasksPage = () => {
   };
 
   const cycleState = (taskId: string, state: TaskState) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DailyTasksPage.tsx:cycleState',message:'cycleState called',data:{taskId,newState:state},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     updateState.mutate({ taskId, state });
   };
 
@@ -205,27 +193,27 @@ const DailyTasksPage = () => {
       {/* Header with date and day status */}
       <div className="rounded-3xl border border-brand-800/30 bg-gradient-to-br from-brand-900/40 via-slate-900 to-black p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-white/70">Focus date</p>
-            <h2 className="text-2xl font-semibold text-white">{format(selectedDate, 'EEEE, MMMM d')}</h2>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex items-center gap-3 rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
-              <CalendarDays className="h-4 w-4" />
-              <input
-                type="date"
-                value={format(selectedDate, 'yyyy-MM-dd')}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setSelectedDate(value ? startOfDay(new Date(value)) : startOfDay(new Date()));
-                }}
-                className="bg-transparent text-sm text-white focus:outline-none"
-              />
-            </label>
-            <Button onClick={openCreateModal} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
+        <div>
+          <p className="text-sm text-white/70">Focus date</p>
+          <h2 className="text-2xl font-semibold text-white">{format(selectedDate, 'EEEE, MMMM d')}</h2>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <label className="flex items-center gap-3 rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
+            <CalendarDays className="h-4 w-4" />
+            <input
+              type="date"
+              value={format(selectedDate, 'yyyy-MM-dd')}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSelectedDate(value ? startOfDay(new Date(value)) : startOfDay(new Date()));
+              }}
+              className="bg-transparent text-sm text-white focus:outline-none"
+            />
+          </label>
+          <Button onClick={openCreateModal} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
               New mission
-            </Button>
+          </Button>
           </div>
         </div>
 

@@ -77,9 +77,6 @@ export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSub
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
-      {/* Hidden parentId field */}
-      {parentId && <input type="hidden" {...register('parentId')} value={parentId} />}
-
       {/* Type selector - only show for top-level missions, not sub-tasks */}
       {!isSubTask && (
         <div className="space-y-2">
@@ -156,6 +153,3 @@ export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSub
     </form>
   );
 };
-
-// Export legacy alias for backward compatibility
-export { MissionComposer as TaskComposer };

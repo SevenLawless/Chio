@@ -207,6 +207,3 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
   );
 };
 
-// Export legacy alias for backward compatibility
-export { MissionCard as TaskCard };
-
