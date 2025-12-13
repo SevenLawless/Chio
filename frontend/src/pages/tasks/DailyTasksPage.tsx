@@ -1,19 +1,37 @@
 import { useMemo, useState } from 'react';
 import { format, startOfDay } from 'date-fns';
-import { CalendarDays, Plus } from 'lucide-react';
+import { CalendarDays, Plus, Flame, Trophy, Target } from 'lucide-react';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useCreateTask, useDeleteTask, useSetTaskState, useTasks, useUpdateTask, useUpdateTaskOrder } from '../../features/tasks/hooks';
-import type { Task, TaskState } from '../../types/task';
+import type { Mission, TaskState, DayStatus } from '../../types/task';
 import Modal from '../../components/ui/Modal';
-import { TaskComposer } from '../../components/tasks/TaskComposer';
-import { TaskCard } from '../../components/tasks/TaskCard';
+import { MissionComposer } from '../../components/tasks/MissionComposer';
+import { MissionCard } from '../../components/tasks/MissionCard';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+
+// Calculate day status based on completion
+const getDayStatus = (completed: number, total: number): DayStatus => {
+  if (total === 0) return 'NONE';
+  const percentage = completed / total;
+  if (percentage >= 1.0) return 'FLAWLESS';
+  if (percentage >= 0.7) return 'GOOD';
+  return 'NONE';
+};
+
+// Get missions to complete for GOOD status
+const getMissionsToGood = (completed: number, total: number): number => {
+  if (total === 0) return 0;
+  const needed = Math.ceil(total * 0.7);
+  return Math.max(0, needed - completed);
+};
 
 const DailyTasksPage = () => {
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Mission | null>(null);
+  const [addingSubTaskToParent, setAddingSubTaskToParent] = useState<string | null>(null);
 
   const tasksQuery = useTasks(selectedDate);
   const createTask = useCreateTask(selectedDate);
@@ -22,10 +40,8 @@ const DailyTasksPage = () => {
   const updateState = useSetTaskState(selectedDate);
   const updateOrder = useUpdateTaskOrder(selectedDate);
 
-  const tasks = useMemo(() => {
-    const filtered = tasksQuery.data?.filter((task) => !task.isCancelled) ?? [];
-    // Sort by order, then by createdAt for consistent ordering
-    // Handle cases where order might be undefined (for existing tasks before migration)
+  const missions = useMemo(() => {
+    const filtered = tasksQuery.data?.filter((mission) => !mission.isCancelled) ?? [];
     return [...filtered].sort((a, b) => {
       const orderA = a.order ?? 0;
       const orderB = b.order ?? 0;
@@ -36,24 +52,61 @@ const DailyTasksPage = () => {
     });
   }, [tasksQuery.data]);
   
-  const dailyTasks = useMemo(() => tasks.filter((task) => task.taskType === 'DAILY'), [tasks]);
-  const oneTimeTasks = useMemo(() => tasks.filter((task) => task.taskType === 'ONE_TIME'), [tasks]);
+  const dailyMissions = useMemo(() => missions.filter((m) => m.taskType === 'DAILY'), [missions]);
+  const oneTimeMissions = useMemo(() => missions.filter((m) => m.taskType === 'ONE_TIME'), [missions]);
+
+  // Calculate progress stats (count missions and all sub-tasks)
+  const progressStats = useMemo(() => {
+    let total = 0;
+    let completed = 0;
+
+    missions.forEach((mission) => {
+      // Count the mission itself
+      total++;
+      if (mission.currentState === 'COMPLETED') completed++;
+
+      // Count sub-tasks
+      mission.subTasks?.forEach((subTask) => {
+        total++;
+        if (subTask.currentState === 'COMPLETED') completed++;
+      });
+    });
+
+    return {
+      total,
+      completed,
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+      status: getDayStatus(completed, total),
+      toGood: getMissionsToGood(completed, total),
+    };
+  }, [missions]);
 
   const openCreateModal = () => {
     setEditingTask(null);
+    setAddingSubTaskToParent(null);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (task: Task) => {
-    setEditingTask(task);
+  const openEditModal = (mission: Mission) => {
+    setEditingTask(mission);
+    setAddingSubTaskToParent(null);
     setIsModalOpen(true);
   };
 
-  const closeModal = () => setIsModalOpen(false);
+  const openAddSubTaskModal = (parentId: string) => {
+    setEditingTask(null);
+    setAddingSubTaskToParent(parentId);
+    setIsModalOpen(true);
+  };
 
-  const handleSave = async (values: { title: string; description?: string; taskType: string; dueDate?: string }) => {
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingTask(null);
+    setAddingSubTaskToParent(null);
+  };
+
+  const handleSave = async (values: { title: string; description?: string; taskType: string; dueDate?: string; parentId?: string }) => {
     try {
-      // Normalize empty strings to undefined
       const normalizedDueDate = values.dueDate && values.dueDate.trim() ? values.dueDate.trim() : undefined;
       const normalizedDescription = values.description && values.description.trim() ? values.description.trim() : null;
 
@@ -63,7 +116,6 @@ const DailyTasksPage = () => {
           description: normalizedDescription,
         };
         
-        // Only include dueDate if it's a ONE_TIME task and has a value
         if (editingTask.taskType === 'ONE_TIME' && normalizedDueDate) {
           payload.dueDate = normalizedDueDate;
         }
@@ -76,15 +128,14 @@ const DailyTasksPage = () => {
         await createTask.mutateAsync({
           title: values.title,
           description: normalizedDescription || undefined,
-          taskType: values.taskType as Task['taskType'],
+          taskType: values.taskType as Mission['taskType'],
           dueDate: normalizedDueDate,
+          parentId: values.parentId || addingSubTaskToParent || undefined,
         });
       }
-      // Close modal after successful mutation
       closeModal();
     } catch (error) {
-      // Error is handled by React Query, but we don't close the modal on error
-      console.error('Failed to save task:', error);
+      console.error('Failed to save mission:', error);
     }
   };
 
@@ -92,72 +143,141 @@ const DailyTasksPage = () => {
     updateState.mutate({ taskId, state });
   };
 
-  const removeTask = (taskId: string) => {
+  const removeMission = (taskId: string) => {
     deleteTask.mutate(taskId);
   };
 
-  const handleDragEnd = (event: DragEndEvent, taskList: Task[]) => {
+  const handleDragEnd = (event: DragEndEvent, missionList: Mission[]) => {
     const { active, over } = event;
 
     if (!over || active.id === over.id) {
       return;
     }
 
-    const oldIndex = taskList.findIndex((task) => task.id === active.id);
-    const newIndex = taskList.findIndex((task) => task.id === over.id);
+    const oldIndex = missionList.findIndex((m) => m.id === active.id);
+    const newIndex = missionList.findIndex((m) => m.id === over.id);
 
     if (oldIndex === -1 || newIndex === -1) {
       return;
     }
 
-    // Create a new array with reordered tasks
-    const reorderedTasks = [...taskList];
-    const [movedTask] = reorderedTasks.splice(oldIndex, 1);
-    reorderedTasks.splice(newIndex, 0, movedTask);
+    const reorderedMissions = [...missionList];
+    const [movedMission] = reorderedMissions.splice(oldIndex, 1);
+    reorderedMissions.splice(newIndex, 0, movedMission);
 
-    // Create new order array with sequential orders starting from 0
-    const newOrder = reorderedTasks.map((task, index) => ({
-      taskId: task.id,
+    const newOrder = reorderedMissions.map((mission, index) => ({
+      taskId: mission.id,
       order: index,
     }));
 
-    // Update all affected tasks
     updateOrder.mutate(newOrder);
   };
 
   const isLoading = tasksQuery.isLoading;
 
+  // Determine modal title and mode
+  const modalTitle = editingTask 
+    ? (editingTask.parentId ? 'Edit task' : 'Edit mission')
+    : addingSubTaskToParent 
+      ? 'Add task' 
+      : 'New mission';
+  
+  const composerMode = editingTask 
+    ? 'edit' 
+    : addingSubTaskToParent 
+      ? 'subtask' 
+      : 'create';
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-3xl border border-brand-800/30 bg-gradient-to-br from-brand-900/40 via-slate-900 to-black p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-white/70">Focus date</p>
-          <h2 className="text-2xl font-semibold text-white">{format(selectedDate, 'EEEE, MMMM d')}</h2>
+      {/* Header with date and day status */}
+      <div className="rounded-3xl border border-brand-800/30 bg-gradient-to-br from-brand-900/40 via-slate-900 to-black p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-white/70">Focus date</p>
+            <h2 className="text-2xl font-semibold text-white">{format(selectedDate, 'EEEE, MMMM d')}</h2>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <label className="flex items-center gap-3 rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
+              <CalendarDays className="h-4 w-4" />
+              <input
+                type="date"
+                value={format(selectedDate, 'yyyy-MM-dd')}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSelectedDate(value ? startOfDay(new Date(value)) : startOfDay(new Date()));
+                }}
+                className="bg-transparent text-sm text-white focus:outline-none"
+              />
+            </label>
+            <Button onClick={openCreateModal} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              New mission
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <label className="flex items-center gap-3 rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
-            <CalendarDays className="h-4 w-4" />
-            <input
-              type="date"
-              value={format(selectedDate, 'yyyy-MM-dd')}
-              onChange={(event) => {
-                const value = event.target.value;
-                // Parse the date input as local date and normalize to start of day
-                setSelectedDate(value ? startOfDay(new Date(value)) : startOfDay(new Date()));
-              }}
-              className="bg-transparent text-sm text-white focus:outline-none"
-            />
-          </label>
-          <Button onClick={openCreateModal} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            New task
-          </Button>
-        </div>
+
+        {/* Progress indicator and day status */}
+        {!isLoading && missions.length > 0 && (
+          <div className="mt-6 space-y-3">
+            {/* Progress bar */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-500 ${
+                      progressStats.status === 'FLAWLESS' 
+                        ? 'bg-gradient-to-r from-amber-400 to-yellow-300' 
+                        : progressStats.status === 'GOOD'
+                          ? 'bg-gradient-to-r from-brand-500 to-brand-400'
+                          : 'bg-brand-500'
+                    }`}
+                    style={{ width: `${progressStats.percentage}%` }}
+                  />
+                </div>
+              </div>
+              <span className="text-sm font-semibold text-white/80 tabular-nums">
+                {progressStats.completed}/{progressStats.total}
+              </span>
+            </div>
+
+            {/* Status badges and encouragement */}
+            <div className="flex flex-wrap items-center gap-3">
+              {progressStats.status === 'FLAWLESS' && (
+                <Badge className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
+                  <Trophy className="h-3.5 w-3.5" />
+                  FLAWLESS
+                </Badge>
+              )}
+              {progressStats.status === 'GOOD' && (
+                <Badge className="bg-gradient-to-r from-brand-500/20 to-emerald-500/20 text-brand-300 border border-brand-500/30 flex items-center gap-1.5">
+                  <Flame className="h-3.5 w-3.5" />
+                  GOOD DAY
+                </Badge>
+              )}
+              {progressStats.status === 'NONE' && progressStats.toGood > 0 && (
+                <p className="text-sm text-white/60 flex items-center gap-2">
+                  <Target className="h-4 w-4 text-brand-400" />
+                  <span>
+                    <span className="text-brand-300 font-semibold">{progressStats.toGood} more</span> to hit GOOD
+                  </span>
+                </p>
+              )}
+              {progressStats.status !== 'NONE' && (
+                <p className="text-sm text-white/60">
+                  {progressStats.status === 'FLAWLESS' 
+                    ? "Perfect execution! You're unstoppable!" 
+                    : "Great progress! Keep the momentum going!"}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {tasksQuery.isError && (
         <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6" role="alert" aria-live="polite">
-          <p className="font-semibold text-rose-200">Error loading tasks</p>
+          <p className="font-semibold text-rose-200">Error loading missions</p>
           <p className="mt-2 text-sm text-rose-300">{(tasksQuery.error as Error).message}</p>
         </div>
       )}
@@ -169,37 +289,38 @@ const DailyTasksPage = () => {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            <span>Loading tasks…</span>
+            <span>Loading missions…</span>
           </div>
         </div>
-      ) : !tasksQuery.isError && tasks.length === 0 ? (
+      ) : !tasksQuery.isError && missions.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-brand-800/30 bg-brand-900/10 p-10 text-center text-white/70">
-          <p>No tasks for this day.</p>
-          <p className="mt-2 text-sm text-brand-300">Click "New task" to get started.</p>
+          <p>No missions for this day.</p>
+          <p className="mt-2 text-sm text-brand-300">Click "New mission" to get started.</p>
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Daily Tasks Section */}
-          {dailyTasks.length > 0 && (
+          {/* Daily Missions Section */}
+          {dailyMissions.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                   <span className="inline-flex h-2 w-2 rounded-full bg-white" />
-                  Daily Rituals
+                  Daily Missions
                 </h3>
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
               </div>
-              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, dailyTasks)}>
-                <SortableContext items={dailyTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, dailyMissions)}>
+                <SortableContext items={dailyMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-4">
-                    {dailyTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onCycleState={(next) => cycleState(task.id, next)}
-                        onEdit={() => openEditModal(task)}
-                        onDelete={() => removeTask(task.id)}
+                    {dailyMissions.map((mission) => (
+                      <MissionCard
+                        key={mission.id}
+                        mission={mission}
+                        onCycleState={cycleState}
+                        onEdit={openEditModal}
+                        onDelete={removeMission}
+                        onAddSubTask={openAddSubTaskModal}
                       />
                     ))}
                   </div>
@@ -208,8 +329,8 @@ const DailyTasksPage = () => {
             </div>
           )}
 
-          {/* One-Time Tasks Section */}
-          {oneTimeTasks.length > 0 && (
+          {/* One-Time Missions Section */}
+          {oneTimeMissions.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
@@ -219,16 +340,17 @@ const DailyTasksPage = () => {
                 </h3>
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
               </div>
-              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, oneTimeTasks)}>
-                <SortableContext items={oneTimeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, oneTimeMissions)}>
+                <SortableContext items={oneTimeMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-4">
-                    {oneTimeTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onCycleState={(next) => cycleState(task.id, next)}
-                        onEdit={() => openEditModal(task)}
-                        onDelete={() => removeTask(task.id)}
+                    {oneTimeMissions.map((mission) => (
+                      <MissionCard
+                        key={mission.id}
+                        mission={mission}
+                        onCycleState={cycleState}
+                        onEdit={openEditModal}
+                        onDelete={removeMission}
+                        onAddSubTask={openAddSubTaskModal}
                       />
                     ))}
                   </div>
@@ -237,10 +359,9 @@ const DailyTasksPage = () => {
             </div>
           )}
 
-          {/* Empty state if both sections are empty but tasks array has items (shouldn't happen, but safety check) */}
-          {dailyTasks.length === 0 && oneTimeTasks.length === 0 && tasks.length > 0 && (
+          {dailyMissions.length === 0 && oneTimeMissions.length === 0 && missions.length > 0 && (
             <div className="rounded-3xl border border-dashed border-brand-800/30 bg-brand-900/10 p-10 text-center text-white/70">
-              <p>No tasks for this day.</p>
+              <p>No missions for this day.</p>
             </div>
           )}
         </div>
@@ -249,9 +370,9 @@ const DailyTasksPage = () => {
       <Modal
         open={isModalOpen}
         onClose={closeModal}
-        title={editingTask ? 'Edit task' : 'New task'}
+        title={modalTitle}
       >
-        <TaskComposer
+        <MissionComposer
           defaultValues={
             editingTask
               ? {
@@ -262,7 +383,8 @@ const DailyTasksPage = () => {
                 }
               : undefined
           }
-          mode={editingTask ? 'edit' : 'create'}
+          mode={composerMode}
+          parentId={addingSubTaskToParent}
           onSubmit={handleSave}
           isSubmitting={createTask.isPending || updateTask.isPending}
         />
@@ -272,4 +394,3 @@ const DailyTasksPage = () => {
 };
 
 export default DailyTasksPage;
-

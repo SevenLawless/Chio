@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { createTask, deleteTask, fetchStats, fetchTasks, setTaskState, updateTask, updateTaskOrder } from './api';
-import type { Task, TaskState, StatsResponse } from '../../types/task';
+import type { Mission, TaskState, StatsResponse } from '../../types/task';
 import { formatDateParam } from '../../lib/date';
 import { useAuthStore } from '../../store/auth';
 
@@ -42,14 +42,26 @@ export const useUpdateTask = (date: Date) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: taskKey(isoDate) });
       // Snapshot previous value
-      const previous = queryClient.getQueryData<Task[]>(taskKey(isoDate));
-      // Optimistically update
-      queryClient.setQueryData<Task[]>(taskKey(isoDate), (tasks = []) =>
-        tasks.map((task) => 
-          task.id === taskId 
-            ? { ...task, ...payload, updatedAt: new Date().toISOString() }
-            : task
-        )
+      const previous = queryClient.getQueryData<Mission[]>(taskKey(isoDate));
+      // Optimistically update (including nested sub-tasks)
+      queryClient.setQueryData<Mission[]>(taskKey(isoDate), (missions = []) =>
+        missions.map((mission) => {
+          if (mission.id === taskId) {
+            return { ...mission, ...payload, updatedAt: new Date().toISOString() };
+          }
+          // Check sub-tasks
+          if (mission.subTasks?.some(st => st.id === taskId)) {
+            return {
+              ...mission,
+              subTasks: mission.subTasks.map(st => 
+                st.id === taskId 
+                  ? { ...st, ...payload, updatedAt: new Date().toISOString() }
+                  : st
+              ),
+            };
+          }
+          return mission;
+        })
       );
       return { previous };
     },
@@ -80,8 +92,14 @@ export const useDeleteTask = (date: Date) => {
     mutationFn: deleteTask,
     onMutate: async (taskId) => {
       await queryClient.cancelQueries({ queryKey: taskKey(isoDate) });
-      const previous = queryClient.getQueryData<Task[]>(taskKey(isoDate));
-      queryClient.setQueryData<Task[]>(taskKey(isoDate), (tasks) => tasks?.filter((task) => task.id !== taskId) ?? []);
+      const previous = queryClient.getQueryData<Mission[]>(taskKey(isoDate));
+      // Filter both top-level missions and sub-tasks
+      queryClient.setQueryData<Mission[]>(taskKey(isoDate), (missions) => 
+        missions?.map(mission => ({
+          ...mission,
+          subTasks: mission.subTasks?.filter(st => st.id !== taskId),
+        })).filter((mission) => mission.id !== taskId) ?? []
+      );
       return { previous };
     },
     onError: (_error, _variables, context) => {
@@ -104,9 +122,24 @@ export const useSetTaskState = (date: Date) => {
       setTaskState(taskId, { state, date: isoDate }),
     onMutate: async ({ taskId, state }) => {
       await queryClient.cancelQueries({ queryKey: taskKey(isoDate) });
-      const previous = queryClient.getQueryData<Task[]>(taskKey(isoDate));
-      queryClient.setQueryData<Task[]>(taskKey(isoDate), (tasks = []) =>
-        tasks.map((task) => (task.id === taskId ? { ...task, currentState: state } : task)),
+      const previous = queryClient.getQueryData<Mission[]>(taskKey(isoDate));
+      // Update state for both missions and sub-tasks
+      queryClient.setQueryData<Mission[]>(taskKey(isoDate), (missions = []) =>
+        missions.map((mission) => {
+          if (mission.id === taskId) {
+            return { ...mission, currentState: state };
+          }
+          // Check sub-tasks
+          if (mission.subTasks?.some(st => st.id === taskId)) {
+            return {
+              ...mission,
+              subTasks: mission.subTasks.map(st => 
+                st.id === taskId ? { ...st, currentState: state } : st
+              ),
+            };
+          }
+          return mission;
+        }),
       );
       return { previous };
     },
@@ -143,13 +176,13 @@ export const useUpdateTaskOrder = (date: Date) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: taskKey(isoDate) });
       // Snapshot previous value
-      const previous = queryClient.getQueryData<Task[]>(taskKey(isoDate));
+      const previous = queryClient.getQueryData<Mission[]>(taskKey(isoDate));
       // Optimistically update order
       const orderMap = new Map(taskOrders.map(to => [to.taskId, to.order]));
-      queryClient.setQueryData<Task[]>(taskKey(isoDate), (tasks = []) =>
-        tasks.map((task) => {
-          const newOrder = orderMap.get(task.id);
-          return newOrder !== undefined ? { ...task, order: newOrder } : task;
+      queryClient.setQueryData<Mission[]>(taskKey(isoDate), (missions = []) =>
+        missions.map((mission) => {
+          const newOrder = orderMap.get(mission.id);
+          return newOrder !== undefined ? { ...mission, order: newOrder } : mission;
         })
       );
       return { previous };

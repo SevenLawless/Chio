@@ -1,9 +1,9 @@
 import { api } from '../../lib/api';
-import type { Task, TaskState, TaskType, TaskStateUpdate, StatsResponse } from '../../types/task';
+import type { Mission, TaskState, TaskType, TaskStateUpdate, StatsResponse } from '../../types/task';
 
 export const fetchTasks = async (dateIso: string) => {
   const params = new URLSearchParams({ date: dateIso });
-  const response = await api.get<{ tasks: Task[] }>(`/tasks?${params.toString()}`, { auth: true });
+  const response = await api.get<{ tasks: Mission[] }>(`/tasks?${params.toString()}`, { auth: true });
   return response.tasks;
 };
 
@@ -12,13 +12,14 @@ export const createTask = async (payload: {
   description?: string;
   taskType: TaskType;
   dueDate?: string | null;
+  parentId?: string | null;
 }) => {
-  const response = await api.post<{ task: Task }>('/tasks', payload, { auth: true });
+  const response = await api.post<{ task: Mission }>('/tasks', payload, { auth: true });
   return response.task;
 };
 
 export const updateTask = async (taskId: string, payload: Partial<{ title: string; description?: string | null; dueDate?: string | null }>) => {
-  const response = await api.put<{ task: Task }>(`/tasks/${taskId}`, payload, { auth: true });
+  const response = await api.put<{ task: Mission }>(`/tasks/${taskId}`, payload, { auth: true });
   return response.task;
 };
 
