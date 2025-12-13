@@ -60,6 +60,11 @@ const DailyTasksPage = () => {
     let total = 0;
     let completed = 0;
 
+    // #region agent log
+    const missionStates = missions.map(m => ({ id: m.id, title: m.title, state: m.currentState, subTasks: m.subTasks?.map(st => ({ id: st.id, state: st.currentState })) }));
+    fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DailyTasksPage.tsx:progressStats',message:'progressStats recalculating',data:{missionsCount:missions.length,missionStates},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     missions.forEach((mission) => {
       // Count the mission itself
       total++;
@@ -71,6 +76,10 @@ const DailyTasksPage = () => {
         if (subTask.currentState === 'COMPLETED') completed++;
       });
     });
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DailyTasksPage.tsx:progressStats:result',message:'progressStats result',data:{total,completed,percentage:total>0?Math.round((completed/total)*100):0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     return {
       total,
@@ -140,6 +149,9 @@ const DailyTasksPage = () => {
   };
 
   const cycleState = (taskId: string, state: TaskState) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DailyTasksPage.tsx:cycleState',message:'cycleState called',data:{taskId,newState:state},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     updateState.mutate({ taskId, state });
   };
 

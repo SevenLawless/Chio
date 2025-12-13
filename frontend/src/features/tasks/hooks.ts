@@ -121,8 +121,15 @@ export const useSetTaskState = (date: Date) => {
     mutationFn: ({ taskId, state }: { taskId: string; state: TaskState }) =>
       setTaskState(taskId, { state, date: isoDate }),
     onMutate: async ({ taskId, state }) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks.ts:useSetTaskState:onMutate',message:'onMutate start',data:{taskId,state,isoDate},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       await queryClient.cancelQueries({ queryKey: taskKey(isoDate) });
       const previous = queryClient.getQueryData<Mission[]>(taskKey(isoDate));
+      // #region agent log
+      const prevStates = previous?.map(m => ({ id: m.id, state: m.currentState, subTasks: m.subTasks?.map(st => ({ id: st.id, state: st.currentState })) }));
+      fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks.ts:useSetTaskState:onMutate:previous',message:'previous cache state',data:{prevStates},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       // Update state for both missions and sub-tasks
       queryClient.setQueryData<Mission[]>(taskKey(isoDate), (missions = []) =>
         missions.map((mission) => {
@@ -141,6 +148,11 @@ export const useSetTaskState = (date: Date) => {
           return mission;
         }),
       );
+      // #region agent log
+      const afterOptimistic = queryClient.getQueryData<Mission[]>(taskKey(isoDate));
+      const afterStates = afterOptimistic?.map(m => ({ id: m.id, state: m.currentState, subTasks: m.subTasks?.map(st => ({ id: st.id, state: st.currentState })) }));
+      fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks.ts:useSetTaskState:onMutate:after',message:'after optimistic update',data:{afterStates},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       return { previous };
     },
     onError: (_error, _variables, context) => {
@@ -149,6 +161,9 @@ export const useSetTaskState = (date: Date) => {
       }
     },
     onSettled: () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e4f82d98-5518-4b7a-8583-e583fd7c4f40',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks.ts:useSetTaskState:onSettled',message:'onSettled - invalidating queries',data:{isoDate},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       queryClient.invalidateQueries({ queryKey: taskKey(isoDate) });
     },
   });
