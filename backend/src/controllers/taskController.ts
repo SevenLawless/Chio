@@ -20,6 +20,7 @@ export const createTaskHandler = async (req: Request, res: Response) => {
     description?: string;
     taskType: TaskType;
     dueDate?: string;
+    parentId?: string;
   };
 
   const task = await createTask(req.userId as string, payload);

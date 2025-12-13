@@ -24,6 +24,7 @@ interface Task {
   isCancelled: boolean;
   order: number;
   userId: string;
+  parentId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -78,11 +79,11 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
   const targetDate = normalizeDate(dateInput);
   const nextDate = addDays(targetDate, 1);
 
-  // Get tasks: DAILY tasks that aren't cancelled OR ONE_TIME tasks for this exact date
-  // For ONE_TIME tasks, we use DATE() function to ensure exact date match (ignoring time component)
-  const tasks = await query<Task>(
+  // Get all missions (top-level, parentId IS NULL): DAILY that aren't cancelled OR ONE_TIME for this date
+  const missions = await query<Task>(
     `SELECT * FROM Task 
      WHERE userId = ? 
+     AND parentId IS NULL
      AND (
        (taskType = 'DAILY' AND isCancelled = FALSE)
        OR (taskType = 'ONE_TIME' AND DATE(dueDate) = DATE(?))
@@ -91,34 +92,76 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
     [userId, targetDate]
   );
 
-  // Get entries for these tasks on this exact date only
-  // Using DATE() function to ensure exact date match (ignoring time component)
-  const taskIds = tasks.map(t => t.id);
-  const entries: TaskEntry[] = taskIds.length > 0
+  // Get all sub-tasks (tasks with parentId) for these missions
+  const missionIds = missions.map(m => m.id);
+  const subTasks: Task[] = missionIds.length > 0
+    ? await query<Task>(
+        `SELECT * FROM Task 
+         WHERE parentId IN (${missionIds.map(() => '?').join(',')})
+         AND isCancelled = FALSE
+         ORDER BY \`order\` ASC, createdAt ASC`,
+        missionIds
+      )
+    : [];
+
+  // Get all task IDs (missions + sub-tasks) for entry lookup
+  const allTaskIds = [...missionIds, ...subTasks.map(st => st.id)];
+  
+  // Get entries for all tasks on this exact date
+  const entries: TaskEntry[] = allTaskIds.length > 0
     ? await query<TaskEntry>(
         `SELECT * FROM TaskEntry 
-         WHERE taskId IN (${taskIds.map(() => '?').join(',')})
+         WHERE taskId IN (${allTaskIds.map(() => '?').join(',')})
          AND DATE(date) = DATE(?)`,
-        [...taskIds, targetDate]
+        [...allTaskIds, targetDate]
       )
     : [];
 
   const entryMap = new Map(entries.map(e => [e.taskId, e]));
 
-  return tasks.map((task) => {
-    const entry = entryMap.get(task.id);
+  // Group sub-tasks by parent
+  const subTasksByParent = subTasks.reduce<Record<string, Task[]>>((acc, task) => {
+    const parentId = task.parentId!;
+    acc[parentId] = acc[parentId] ?? [];
+    acc[parentId].push(task);
+    return acc;
+  }, {});
+
+  // Build response with nested sub-tasks
+  return missions.map((mission) => {
+    const entry = entryMap.get(mission.id);
+    const missionSubTasks = subTasksByParent[mission.id] ?? [];
+    
     return {
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      taskType: task.taskType,
-      dueDate: task.dueDate,
-      isCancelled: task.isCancelled,
-      order: task.order,
+      id: mission.id,
+      title: mission.title,
+      description: mission.description,
+      taskType: mission.taskType,
+      dueDate: mission.dueDate,
+      isCancelled: mission.isCancelled,
+      order: mission.order,
+      parentId: mission.parentId,
       currentState: entry?.state ?? TaskState.NOT_STARTED,
       date: targetDate.toISOString(),
-      updatedAt: task.updatedAt,
-      createdAt: task.createdAt,
+      updatedAt: mission.updatedAt,
+      createdAt: mission.createdAt,
+      subTasks: missionSubTasks.map((subTask) => {
+        const subEntry = entryMap.get(subTask.id);
+        return {
+          id: subTask.id,
+          title: subTask.title,
+          description: subTask.description,
+          taskType: subTask.taskType,
+          dueDate: subTask.dueDate,
+          isCancelled: subTask.isCancelled,
+          order: subTask.order,
+          parentId: subTask.parentId,
+          currentState: subEntry?.state ?? TaskState.NOT_STARTED,
+          date: targetDate.toISOString(),
+          updatedAt: subTask.updatedAt,
+          createdAt: subTask.createdAt,
+        };
+      }),
     };
   });
 };
@@ -128,6 +171,7 @@ interface TaskInput {
   description?: string | null;
   taskType: TaskType;
   dueDate?: string | null;
+  parentId?: string | null;
 }
 
 export const createTask = async (userId: string, input: TaskInput) => {
@@ -143,34 +187,55 @@ export const createTask = async (userId: string, input: TaskInput) => {
 
   const id = randomUUID();
   const description = input.description?.trim() || null;
+  const parentId = input.parentId || null;
   
   if (description && description.length > 1000) {
     throw new HttpError(400, 'Description must be 1000 characters or less');
   }
 
+  // If parentId is provided, validate it exists and belongs to user
+  if (parentId) {
+    const parentTask = await queryOne<Task>(
+      'SELECT * FROM Task WHERE id = ? AND userId = ?',
+      [parentId, userId]
+    );
+    if (!parentTask) {
+      throw new HttpError(404, 'Parent mission not found');
+    }
+    if (parentTask.parentId) {
+      throw new HttpError(400, 'Cannot create sub-task under another sub-task');
+    }
+  }
+
   const now = new Date();
   
   // Get the maximum order value for this user to set the new task's order
-  const maxOrderResult = await queryOne<{ maxOrder: number }>(
-    'SELECT COALESCE(MAX(`order`), -1) as maxOrder FROM Task WHERE userId = ?',
-    [userId]
-  );
+  // For sub-tasks, get max order within the parent
+  const maxOrderResult = parentId
+    ? await queryOne<{ maxOrder: number }>(
+        'SELECT COALESCE(MAX(`order`), -1) as maxOrder FROM Task WHERE parentId = ?',
+        [parentId]
+      )
+    : await queryOne<{ maxOrder: number }>(
+        'SELECT COALESCE(MAX(`order`), -1) as maxOrder FROM Task WHERE userId = ? AND parentId IS NULL',
+        [userId]
+      );
   const newOrder = (maxOrderResult?.maxOrder ?? -1) + 1;
   
   if (input.taskType === TaskType.ONE_TIME) {
-    if (!input.dueDate) {
-      throw new HttpError(400, 'One-time tasks require a due date');
+    if (!input.dueDate && !parentId) {
+      throw new HttpError(400, 'One-time missions require a due date');
     }
-    const dueDate = normalizeDate(input.dueDate);
+    const dueDate = input.dueDate ? normalizeDate(input.dueDate) : null;
     
     await query(
-      'INSERT INTO Task (id, title, description, taskType, dueDate, userId, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description, TaskType.ONE_TIME, dueDate, userId, false, newOrder, now, now]
+      'INSERT INTO Task (id, title, description, taskType, dueDate, userId, parentId, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, title, description, TaskType.ONE_TIME, dueDate, userId, parentId, false, newOrder, now, now]
     );
   } else {
     await query(
-      'INSERT INTO Task (id, title, description, taskType, userId, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description, TaskType.DAILY, userId, false, newOrder, now, now]
+      'INSERT INTO Task (id, title, description, taskType, userId, parentId, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, title, description, TaskType.DAILY, userId, parentId, false, newOrder, now, now]
     );
   }
 

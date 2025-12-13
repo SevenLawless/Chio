@@ -28,6 +28,7 @@ export const createTaskSchema = z.object({
     description: z.string().max(1000, 'Description must be 1000 characters or less').optional(),
     taskType: z.nativeEnum(TaskType),
     dueDate: dateString.optional(),
+    parentId: z.string().uuid().optional(),
   }),
 });
 

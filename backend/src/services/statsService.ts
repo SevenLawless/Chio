@@ -3,6 +3,20 @@ import { query } from '../utils/prisma';
 import { HttpError } from '../utils/errors';
 import { TaskState, TaskType } from './taskService';
 
+// Day status thresholds
+const GOOD_THRESHOLD = 0.7; // 70%
+const FLAWLESS_THRESHOLD = 1.0; // 100%
+
+export type DayStatus = 'NONE' | 'GOOD' | 'FLAWLESS';
+
+const getDayStatus = (completed: number, total: number): DayStatus => {
+  if (total === 0) return 'NONE';
+  const percentage = completed / total;
+  if (percentage >= FLAWLESS_THRESHOLD) return 'FLAWLESS';
+  if (percentage >= GOOD_THRESHOLD) return 'GOOD';
+  return 'NONE';
+};
+
 const parseDate = (value?: string) => {
   if (!value) {
     return undefined;
@@ -49,15 +63,16 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
 
   const inclusiveEnd = addDays(end, 1);
 
-  // Get all tasks and entries for the date range
+  // Get all tasks (including sub-tasks) and entries for the date range
+  // Each task/sub-task counts individually toward completion
   const [dailyTasks, oneTimeTasks, entries] = await Promise.all([
-    query<{ id: string }>(
-      `SELECT id FROM Task 
+    query<{ id: string; parentId: string | null }>(
+      `SELECT id, parentId FROM Task 
        WHERE userId = ? AND taskType = ? AND isCancelled = FALSE`,
       [userId, TaskType.DAILY]
     ),
-    query<{ id: string; dueDate: Date }>(
-      `SELECT id, dueDate FROM Task 
+    query<{ id: string; dueDate: Date; parentId: string | null }>(
+      `SELECT id, dueDate, parentId FROM Task 
        WHERE userId = ? AND taskType = ? AND dueDate >= ? AND dueDate < ?`,
       [userId, TaskType.ONE_TIME, start, inclusiveEnd]
     ),
@@ -70,6 +85,7 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     ),
   ]);
 
+  // Count all tasks (missions + sub-tasks) - each counts individually
   const dailyTaskCount = dailyTasks.length;
   const oneTimeByDay = oneTimeTasks.reduce<Record<string, number>>((acc, task) => {
     if (!task.dueDate) {
@@ -115,6 +131,9 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     const entriesWithState = completed + skipped;
     const notStarted = Math.max(0, baseCount - entriesWithState);
 
+    // Calculate day status based on completion percentage
+    const status = getDayStatus(completed, baseCount);
+
     return {
       date: key,
       totals: {
@@ -123,6 +142,7 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
         notStarted,
         total: baseCount,
       },
+      status,
     };
   });
 
@@ -137,6 +157,47 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     { completed: 0, skipped: 0, notStarted: 0, total: 0 },
   );
 
+  // Calculate streaks (consecutive days with GOOD or FLAWLESS status)
+  // Reverse the breakdown to calculate from most recent
+  const reversedBreakdown = [...dailyBreakdown].reverse();
+  
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let tempStreak = 0;
+  let countingCurrentStreak = true;
+
+  for (const day of reversedBreakdown) {
+    const isGoodDay = day.status === 'GOOD' || day.status === 'FLAWLESS';
+    
+    if (isGoodDay) {
+      tempStreak++;
+      if (countingCurrentStreak) {
+        currentStreak = tempStreak;
+      }
+      bestStreak = Math.max(bestStreak, tempStreak);
+    } else {
+      // Reset temp streak, stop counting current streak
+      countingCurrentStreak = false;
+      tempStreak = 0;
+    }
+  }
+
+  // Also calculate from the beginning to find best streaks we might have missed
+  tempStreak = 0;
+  for (const day of dailyBreakdown) {
+    const isGoodDay = day.status === 'GOOD' || day.status === 'FLAWLESS';
+    if (isGoodDay) {
+      tempStreak++;
+      bestStreak = Math.max(bestStreak, tempStreak);
+    } else {
+      tempStreak = 0;
+    }
+  }
+
+  // Count total good and flawless days
+  const goodDays = dailyBreakdown.filter(d => d.status === 'GOOD').length;
+  const flawlessDays = dailyBreakdown.filter(d => d.status === 'FLAWLESS').length;
+
   return {
     range: {
       start: formatISO(start, { representation: 'date' }),
@@ -144,5 +205,14 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     },
     aggregates,
     dailyBreakdown,
+    streaks: {
+      current: currentStreak,
+      best: bestStreak,
+    },
+    dayStats: {
+      good: goodDays,
+      flawless: flawlessDays,
+      total: dailyBreakdown.length,
+    },
   };
 };

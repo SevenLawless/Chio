@@ -159,4 +159,3 @@ export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSub
 
 // Export legacy alias for backward compatibility
 export { MissionComposer as TaskComposer };
-
