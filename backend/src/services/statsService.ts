@@ -1,4 +1,4 @@
-import { addDays, eachDayOfInterval, formatISO, isValid, parseISO, startOfDay } from 'date-fns';
+import { addDays, eachDayOfInterval, formatISO, isValid, parseISO, startOfDay, subDays } from 'date-fns';
 import { query } from '../utils/prisma';
 import { HttpError } from '../utils/errors';
 import { TaskState, TaskType } from './taskService';
@@ -7,9 +7,18 @@ import { TaskState, TaskType } from './taskService';
 const GOOD_THRESHOLD = 0.7; // 70%
 const FLAWLESS_THRESHOLD = 1.0; // 100%
 
-export type DayStatus = 'NONE' | 'GOOD' | 'FLAWLESS';
+// Volume-based productivity thresholds (absolute task count)
+const PRODUCTIVE_THRESHOLD = 11; // 11+ tasks = PRODUCTIVE
+const LEGENDARY_THRESHOLD = 20; // 20+ tasks = LEGENDARY
+
+export type DayStatus = 'NONE' | 'GOOD' | 'FLAWLESS' | 'PRODUCTIVE' | 'LEGENDARY';
 
 const getDayStatus = (completed: number, total: number): DayStatus => {
+  // Volume-based tiers take priority (absolute task count)
+  if (completed >= LEGENDARY_THRESHOLD) return 'LEGENDARY';
+  if (completed >= PRODUCTIVE_THRESHOLD) return 'PRODUCTIVE';
+  
+  // Percentage-based tiers
   if (total === 0) return 'NONE';
   const percentage = completed / total;
   if (percentage >= FLAWLESS_THRESHOLD) return 'FLAWLESS';
@@ -45,7 +54,7 @@ const parseDate = (value?: string) => {
 
 const defaultRange = () => {
   const end = startOfDay(new Date());
-  const start = startOfDay(parseISO('2025-11-30'));
+  const start = subDays(end, 30); // Last 30 days
   return { start, end };
 };
 
@@ -157,9 +166,12 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     { completed: 0, skipped: 0, notStarted: 0, total: 0 },
   );
 
-  // Calculate streaks (consecutive days with GOOD or FLAWLESS status)
+  // Calculate streaks (consecutive days with any positive status)
   // Reverse the breakdown to calculate from most recent
   const reversedBreakdown = [...dailyBreakdown].reverse();
+  
+  const isPositiveDay = (status: DayStatus) => 
+    status === 'GOOD' || status === 'FLAWLESS' || status === 'PRODUCTIVE' || status === 'LEGENDARY';
   
   let currentStreak = 0;
   let bestStreak = 0;
@@ -167,9 +179,7 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
   let countingCurrentStreak = true;
 
   for (const day of reversedBreakdown) {
-    const isGoodDay = day.status === 'GOOD' || day.status === 'FLAWLESS';
-    
-    if (isGoodDay) {
+    if (isPositiveDay(day.status)) {
       tempStreak++;
       if (countingCurrentStreak) {
         currentStreak = tempStreak;
@@ -182,21 +192,11 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     }
   }
 
-  // Also calculate from the beginning to find best streaks we might have missed
-  tempStreak = 0;
-  for (const day of dailyBreakdown) {
-    const isGoodDay = day.status === 'GOOD' || day.status === 'FLAWLESS';
-    if (isGoodDay) {
-      tempStreak++;
-      bestStreak = Math.max(bestStreak, tempStreak);
-    } else {
-      tempStreak = 0;
-    }
-  }
-
-  // Count total good and flawless days
+  // Count total days by status
   const goodDays = dailyBreakdown.filter(d => d.status === 'GOOD').length;
   const flawlessDays = dailyBreakdown.filter(d => d.status === 'FLAWLESS').length;
+  const productiveDays = dailyBreakdown.filter(d => d.status === 'PRODUCTIVE').length;
+  const legendaryDays = dailyBreakdown.filter(d => d.status === 'LEGENDARY').length;
 
   return {
     range: {
@@ -212,6 +212,8 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     dayStats: {
       good: goodDays,
       flawless: flawlessDays,
+      productive: productiveDays,
+      legendary: legendaryDays,
       total: dailyBreakdown.length,
     },
   };

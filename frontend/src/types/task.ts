@@ -1,6 +1,6 @@
 export type TaskType = 'DAILY' | 'ONE_TIME';
 export type TaskState = 'NOT_STARTED' | 'COMPLETED' | 'SKIPPED';
-export type DayStatus = 'NONE' | 'GOOD' | 'FLAWLESS';
+export type DayStatus = 'NONE' | 'GOOD' | 'FLAWLESS' | 'PRODUCTIVE' | 'LEGENDARY';
 
 // A Mission is a top-level task, which can have sub-tasks
 export interface Mission {
@@ -53,6 +53,8 @@ export interface StatsResponse {
   dayStats: {
     good: number;
     flawless: number;
+    productive: number;
+    legendary: number;
     total: number;
   };
 }

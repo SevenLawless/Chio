@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { parseISO, startOfDay } from 'date-fns';
-import { Flame, Trophy, Target, Sparkles, TrendingUp, Calendar, Zap, Star } from 'lucide-react';
+import { startOfDay, subDays } from 'date-fns';
+import { Flame, Trophy, Target, Sparkles, TrendingUp, Calendar, Zap, Star, Crown, Rocket } from 'lucide-react';
 import { useStats } from '../../features/tasks/hooks';
 import { formatDayLabel } from '../../lib/date';
 import type { DayStatus } from '../../types/task';
@@ -8,6 +8,15 @@ import { Badge } from '../../components/ui/Badge';
 
 // Motivational messages based on performance
 const getMotivationalMessage = (currentStreak: number, status: DayStatus | null, percentage: number): string => {
+  // Volume-based tiers take priority
+  if (status === 'LEGENDARY') {
+    return "GODDAMNNNNN, You best bring that extra long tape measure on account of my humongous balls";
+  }
+
+  if (status === 'PRODUCTIVE') {
+    return "DAMN PRODUCTIVE DAY";
+  }
+
   if (status === 'FLAWLESS') {
     const messages = [
       "Absolutely legendary! You're on fire!",
@@ -46,6 +55,22 @@ const getMotivationalMessage = (currentStreak: number, status: DayStatus | null,
 };
 
 const DayStatusBadge = ({ status }: { status: DayStatus }) => {
+  if (status === 'LEGENDARY') {
+    return (
+      <Badge className="bg-gradient-to-r from-fuchsia-500/30 to-purple-500/30 text-fuchsia-200 border border-fuchsia-400/50 flex items-center gap-1 animate-pulse">
+        <Crown className="h-3 w-3" />
+        LEGENDARY
+      </Badge>
+    );
+  }
+  if (status === 'PRODUCTIVE') {
+    return (
+      <Badge className="bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-300 border border-orange-500/30 flex items-center gap-1">
+        <Rocket className="h-3 w-3" />
+        PRODUCTIVE
+      </Badge>
+    );
+  }
   if (status === 'FLAWLESS') {
     return (
       <Badge className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
@@ -66,7 +91,7 @@ const DayStatusBadge = ({ status }: { status: DayStatus }) => {
 };
 
 const StatsPage = () => {
-  const [startDate, setStartDate] = useState(() => startOfDay(parseISO('2025-11-30')));
+  const [startDate, setStartDate] = useState(() => subDays(startOfDay(new Date()), 30));
   const [endDate, setEndDate] = useState(() => startOfDay(new Date()));
 
   const statsQuery = useStats(startDate, endDate);
@@ -74,7 +99,7 @@ const StatsPage = () => {
   const data = statsQuery.data;
   const totals = data?.aggregates;
   const streaks = data?.streaks ?? { current: 0, best: 0 };
-  const dayStats = data?.dayStats ?? { good: 0, flawless: 0, total: 0 };
+  const dayStats = data?.dayStats ?? { good: 0, flawless: 0, productive: 0, legendary: 0, total: 0 };
 
   // Get today's status for motivational message
   const todayStatus = useMemo(() => {
@@ -156,7 +181,33 @@ const StatsPage = () => {
       </div>
 
       {/* Stats Cards Row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Legendary Days */}
+        <div className="rounded-2xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-900/20 to-purple-900/20 p-4 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-500/20">
+              <Crown className="h-5 w-5 text-fuchsia-400" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-300/80">Legendary days</p>
+              <p className="text-2xl font-bold text-fuchsia-200">{dayStats.legendary}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Productive Days */}
+        <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-900/20 to-red-900/20 p-4 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20">
+              <Rocket className="h-5 w-5 text-orange-400" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-orange-300/80">Productive days</p>
+              <p className="text-2xl font-bold text-orange-200">{dayStats.productive}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Best Streak */}
         <div className="rounded-2xl border border-brand-800/30 bg-brand-900/20 p-4 text-white">
           <div className="flex items-center gap-3">
@@ -301,9 +352,13 @@ const StatsPage = () => {
                     <span 
                       style={{ width: `${percentages.completed}%` }} 
                       className={`transition-all ${
-                        day.status === 'FLAWLESS' 
-                          ? 'bg-gradient-to-r from-amber-400 to-yellow-300' 
-                          : 'bg-brand-500'
+                        day.status === 'LEGENDARY' 
+                          ? 'bg-gradient-to-r from-fuchsia-500 to-purple-400' 
+                          : day.status === 'PRODUCTIVE'
+                            ? 'bg-gradient-to-r from-orange-500 to-red-400'
+                            : day.status === 'FLAWLESS' 
+                              ? 'bg-gradient-to-r from-amber-400 to-yellow-300' 
+                              : 'bg-brand-500'
                       }`} 
                     />
                     <span style={{ width: `${percentages.skipped}%` }} className="bg-rose-400" />

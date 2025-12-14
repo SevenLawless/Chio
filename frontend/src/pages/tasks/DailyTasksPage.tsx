@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { format, startOfDay } from 'date-fns';
-import { CalendarDays, Plus, Flame, Trophy, Target } from 'lucide-react';
+import { CalendarDays, Plus, Flame, Trophy, Target, Crown, Rocket } from 'lucide-react';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useCreateTask, useDeleteTask, useSetTaskState, useTasks, useUpdateTask, useUpdateTaskOrder } from '../../features/tasks/hooks';
@@ -11,8 +11,17 @@ import { MissionCard } from '../../components/tasks/MissionCard';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 
-// Calculate day status based on completion
+// Volume-based productivity thresholds
+const PRODUCTIVE_THRESHOLD = 11;
+const LEGENDARY_THRESHOLD = 20;
+
+// Calculate day status based on completion (volume takes priority)
 const getDayStatus = (completed: number, total: number): DayStatus => {
+  // Volume-based tiers take priority
+  if (completed >= LEGENDARY_THRESHOLD) return 'LEGENDARY';
+  if (completed >= PRODUCTIVE_THRESHOLD) return 'PRODUCTIVE';
+  
+  // Percentage-based tiers
   if (total === 0) return 'NONE';
   const percentage = completed / total;
   if (percentage >= 1.0) return 'FLAWLESS';
@@ -20,11 +29,40 @@ const getDayStatus = (completed: number, total: number): DayStatus => {
   return 'NONE';
 };
 
-// Get missions to complete for GOOD status
-const getMissionsToGood = (completed: number, total: number): number => {
-  if (total === 0) return 0;
-  const needed = Math.ceil(total * 0.7);
-  return Math.max(0, needed - completed);
+// Get tasks needed for next tier
+const getProgressEncouragement = (completed: number, total: number): { message: string; target: string; needed: number } | null => {
+  // If already LEGENDARY, no encouragement needed
+  if (completed >= LEGENDARY_THRESHOLD) return null;
+  
+  // Next target is LEGENDARY
+  if (completed >= PRODUCTIVE_THRESHOLD) {
+    return {
+      message: `${LEGENDARY_THRESHOLD - completed} more to go`,
+      target: 'LEGENDARY',
+      needed: LEGENDARY_THRESHOLD - completed,
+    };
+  }
+  
+  // Next target is PRODUCTIVE
+  if (completed >= Math.ceil(total * 0.7)) {
+    return {
+      message: `${PRODUCTIVE_THRESHOLD - completed} more to hit`,
+      target: 'PRODUCTIVE',
+      needed: PRODUCTIVE_THRESHOLD - completed,
+    };
+  }
+  
+  // Next target is GOOD (70%)
+  const neededForGood = Math.ceil(total * 0.7) - completed;
+  if (neededForGood > 0) {
+    return {
+      message: `${neededForGood} more to hit`,
+      target: 'GOOD',
+      needed: neededForGood,
+    };
+  }
+  
+  return null;
 };
 
 const DailyTasksPage = () => {
@@ -72,12 +110,15 @@ const DailyTasksPage = () => {
       });
     });
 
+    const status = getDayStatus(completed, total);
+    const encouragement = getProgressEncouragement(completed, total);
+
     return {
       total,
       completed,
       percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
-      status: getDayStatus(completed, total),
-      toGood: getMissionsToGood(completed, total),
+      status,
+      encouragement,
     };
   }, [missions]);
 
@@ -226,11 +267,15 @@ const DailyTasksPage = () => {
                 <div className="h-3 rounded-full bg-white/10 overflow-hidden">
                   <div 
                     className={`h-full transition-all duration-500 ${
-                      progressStats.status === 'FLAWLESS' 
-                        ? 'bg-gradient-to-r from-amber-400 to-yellow-300' 
-                        : progressStats.status === 'GOOD'
-                          ? 'bg-gradient-to-r from-brand-500 to-brand-400'
-                          : 'bg-brand-500'
+                      progressStats.status === 'LEGENDARY'
+                        ? 'bg-gradient-to-r from-fuchsia-500 to-purple-400'
+                        : progressStats.status === 'PRODUCTIVE'
+                          ? 'bg-gradient-to-r from-orange-500 to-red-400'
+                          : progressStats.status === 'FLAWLESS' 
+                            ? 'bg-gradient-to-r from-amber-400 to-yellow-300' 
+                            : progressStats.status === 'GOOD'
+                              ? 'bg-gradient-to-r from-brand-500 to-brand-400'
+                              : 'bg-brand-500'
                     }`}
                     style={{ width: `${progressStats.percentage}%` }}
                   />
@@ -243,6 +288,18 @@ const DailyTasksPage = () => {
 
             {/* Status badges and encouragement */}
             <div className="flex flex-wrap items-center gap-3">
+              {progressStats.status === 'LEGENDARY' && (
+                <Badge className="bg-gradient-to-r from-fuchsia-500/30 to-purple-500/30 text-fuchsia-200 border border-fuchsia-400/50 flex items-center gap-1.5 animate-pulse">
+                  <Crown className="h-3.5 w-3.5" />
+                  LEGENDARY
+                </Badge>
+              )}
+              {progressStats.status === 'PRODUCTIVE' && (
+                <Badge className="bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-300 border border-orange-500/30 flex items-center gap-1.5">
+                  <Rocket className="h-3.5 w-3.5" />
+                  PRODUCTIVE
+                </Badge>
+              )}
               {progressStats.status === 'FLAWLESS' && (
                 <Badge className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
                   <Trophy className="h-3.5 w-3.5" />
@@ -255,19 +312,27 @@ const DailyTasksPage = () => {
                   GOOD DAY
                 </Badge>
               )}
-              {progressStats.status === 'NONE' && progressStats.toGood > 0 && (
+              
+              {/* Encouragement for next tier */}
+              {progressStats.encouragement && (
                 <p className="text-sm text-white/60 flex items-center gap-2">
                   <Target className="h-4 w-4 text-brand-400" />
                   <span>
-                    <span className="text-brand-300 font-semibold">{progressStats.toGood} more</span> to hit GOOD
+                    <span className="text-brand-300 font-semibold">{progressStats.encouragement.message}</span> {progressStats.encouragement.target}
                   </span>
                 </p>
               )}
-              {progressStats.status !== 'NONE' && (
+              
+              {/* Motivational message based on status */}
+              {progressStats.status !== 'NONE' && !progressStats.encouragement && (
                 <p className="text-sm text-white/60">
-                  {progressStats.status === 'FLAWLESS' 
-                    ? "Perfect execution! You're unstoppable!" 
-                    : "Great progress! Keep the momentum going!"}
+                  {progressStats.status === 'LEGENDARY' 
+                    ? "GODDAMNNNNN, You best bring that extra long tape measure!" 
+                    : progressStats.status === 'PRODUCTIVE'
+                      ? "DAMN PRODUCTIVE DAY"
+                      : progressStats.status === 'FLAWLESS' 
+                        ? "Perfect execution! You're unstoppable!" 
+                        : "Great progress! Keep the momentum going!"}
                 </p>
               )}
             </div>
