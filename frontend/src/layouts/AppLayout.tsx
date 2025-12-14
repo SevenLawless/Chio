@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
+import { MotivationalSidePanels } from '../components/MotivationalSidePanels';
 
 const navItems = [
   { label: 'Daily Flow', to: '/app/tasks' },
@@ -19,7 +20,10 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8 lg:pt-10">
+      {/* Motivational image side panels - visible on xl screens only */}
+      <MotivationalSidePanels />
+      
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8 lg:pt-10 xl:px-32">
         <header className="flex flex-col gap-4 rounded-3xl border border-brand-800/30 bg-brand-900/20 px-6 py-5 backdrop-blur md:flex-row md:items-center md:justify-between" role="banner">
           <div>
             <p className="text-sm text-white/60">Hi, {user?.username ?? 'Explorer'}</p>
