@@ -39,8 +39,8 @@ const ImagePanel = ({ images, side }: ImagePanelProps) => {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   
   const positionClasses = side === 'left' 
-    ? 'left-4' 
-    : 'right-4';
+    ? 'left-2' 
+    : 'right-2';
 
   const handleImageError = (src: string) => {
     setFailedImages(prev => new Set(prev).add(src));
@@ -48,7 +48,7 @@ const ImagePanel = ({ images, side }: ImagePanelProps) => {
 
   return (
     <div 
-      className={`fixed ${positionClasses} top-1/2 -translate-y-1/2 z-10 hidden xl:flex flex-col gap-6`}
+      className={`fixed ${positionClasses} top-1/2 -translate-y-1/2 z-10 hidden xl:flex flex-col gap-4`}
       aria-hidden="true"
     >
       {images.map((src, index) => {
@@ -56,7 +56,7 @@ const ImagePanel = ({ images, side }: ImagePanelProps) => {
         return (
           <div 
             key={`${side}-${index}`}
-            className="w-48 h-64 rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-black/20 bg-slate-900 relative"
+            className="w-56 h-80 rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-black/20 bg-slate-900 relative"
           >
             {hasFailed ? (
               <div className="w-full h-full flex items-center justify-center text-white/20 text-xs text-center p-2">

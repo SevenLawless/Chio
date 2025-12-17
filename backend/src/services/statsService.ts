@@ -155,7 +155,12 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     };
   });
 
-  const aggregates = dailyBreakdown.reduce(
+  // Filter out days with no activity (0 done and 0 skipped)
+  const activeDays = dailyBreakdown.filter(day => 
+    day.totals.completed > 0 || day.totals.skipped > 0
+  );
+
+  const aggregates = activeDays.reduce(
     (acc, day) => {
       acc.completed += day.totals.completed;
       acc.skipped += day.totals.skipped;
@@ -167,8 +172,8 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
   );
 
   // Calculate streaks (consecutive days with any positive status)
-  // Reverse the breakdown to calculate from most recent
-  const reversedBreakdown = [...dailyBreakdown].reverse();
+  // Only consider active days for streak calculation
+  const reversedActiveDays = [...activeDays].reverse();
   
   const isPositiveDay = (status: DayStatus) => 
     status === 'GOOD' || status === 'FLAWLESS' || status === 'PRODUCTIVE' || status === 'LEGENDARY';
@@ -178,7 +183,7 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
   let tempStreak = 0;
   let countingCurrentStreak = true;
 
-  for (const day of reversedBreakdown) {
+  for (const day of reversedActiveDays) {
     if (isPositiveDay(day.status)) {
       tempStreak++;
       if (countingCurrentStreak) {
@@ -192,11 +197,11 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
     }
   }
 
-  // Count total days by status
-  const goodDays = dailyBreakdown.filter(d => d.status === 'GOOD').length;
-  const flawlessDays = dailyBreakdown.filter(d => d.status === 'FLAWLESS').length;
-  const productiveDays = dailyBreakdown.filter(d => d.status === 'PRODUCTIVE').length;
-  const legendaryDays = dailyBreakdown.filter(d => d.status === 'LEGENDARY').length;
+  // Count total days by status (only from active days)
+  const goodDays = activeDays.filter(d => d.status === 'GOOD').length;
+  const flawlessDays = activeDays.filter(d => d.status === 'FLAWLESS').length;
+  const productiveDays = activeDays.filter(d => d.status === 'PRODUCTIVE').length;
+  const legendaryDays = activeDays.filter(d => d.status === 'LEGENDARY').length;
 
   return {
     range: {
@@ -204,7 +209,7 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
       end: formatISO(end, { representation: 'date' }),
     },
     aggregates,
-    dailyBreakdown,
+    dailyBreakdown: activeDays,
     streaks: {
       current: currentStreak,
       best: bestStreak,
@@ -214,7 +219,7 @@ export const getTaskStats = async (userId: string, startInput?: string, endInput
       flawless: flawlessDays,
       productive: productiveDays,
       legendary: legendaryDays,
-      total: dailyBreakdown.length,
+      total: activeDays.length,
     },
   };
 };

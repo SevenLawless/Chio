@@ -236,7 +236,7 @@ const DailyTasksPage = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-white/70">Focus date</p>
-          <h2 className="text-2xl font-semibold text-white">{format(selectedDate, 'EEEE, MMMM d')}</h2>
+          <h2 className="text-2xl font-semibold text-white whitespace-nowrap">{format(selectedDate, 'EEE, MMM d')}</h2>
         </div>
         <div className="flex flex-wrap gap-3">
           <label className="flex items-center gap-3 rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
@@ -364,36 +364,6 @@ const DailyTasksPage = () => {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Daily Missions Section */}
-          {dailyMissions.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-white" />
-                  Daily Missions
-                </h3>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
-              </div>
-              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, dailyMissions)}>
-                <SortableContext items={dailyMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-4">
-                    {dailyMissions.map((mission) => (
-                      <MissionCard
-                        key={mission.id}
-                        mission={mission}
-                        onCycleState={cycleState}
-                        onEdit={openEditModal}
-                        onDelete={removeMission}
-                        onAddSubTask={openAddSubTaskModal}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </div>
-          )}
-
           {/* One-Time Missions Section */}
           {oneTimeMissions.length > 0 && (
             <div className="space-y-4">
@@ -409,6 +379,36 @@ const DailyTasksPage = () => {
                 <SortableContext items={oneTimeMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-4">
                     {oneTimeMissions.map((mission) => (
+                      <MissionCard
+                        key={mission.id}
+                        mission={mission}
+                        onCycleState={cycleState}
+                        onEdit={openEditModal}
+                        onDelete={removeMission}
+                        onAddSubTask={openAddSubTaskModal}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+
+          {/* Daily Missions Section */}
+          {dailyMissions.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-white" />
+                  Daily Missions
+                </h3>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+              </div>
+              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, dailyMissions)}>
+                <SortableContext items={dailyMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-4">
+                    {dailyMissions.map((mission) => (
                       <MissionCard
                         key={mission.id}
                         mission={mission}

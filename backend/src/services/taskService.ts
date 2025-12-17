@@ -361,6 +361,42 @@ export const setTaskState = async (
     [taskId, targetDate]
   );
 
+  // Auto-complete parent mission if all sub-tasks are completed or skipped
+  if (task.parentId) {
+    const siblings = await query<{ id: string; state: TaskState | null }>(
+      `SELECT t.id, te.state FROM Task t
+       LEFT JOIN TaskEntry te ON t.id = te.taskId AND DATE(te.date) = DATE(?)
+       WHERE t.parentId = ? AND t.isCancelled = FALSE`,
+      [targetDate, task.parentId]
+    );
+
+    const allDone = siblings.length > 0 && siblings.every(
+      s => s.state === TaskState.COMPLETED || s.state === TaskState.SKIPPED
+    );
+
+    if (allDone) {
+      // Check if parent entry exists for this date
+      const parentEntry = await queryOne<TaskEntry>(
+        'SELECT * FROM TaskEntry WHERE taskId = ? AND DATE(date) = DATE(?)',
+        [task.parentId, targetDate]
+      );
+
+      if (parentEntry) {
+        await query(
+          'UPDATE TaskEntry SET state = ? WHERE taskId = ? AND DATE(date) = DATE(?)',
+          [TaskState.COMPLETED, task.parentId, targetDate]
+        );
+      } else {
+        const parentEntryId = randomUUID();
+        const now = new Date();
+        await query(
+          'INSERT INTO TaskEntry (id, taskId, date, state, createdAt) VALUES (?, ?, ?, ?, ?)',
+          [parentEntryId, task.parentId, targetDate, TaskState.COMPLETED, now]
+        );
+      }
+    }
+  }
+
   return {
     taskId: task.id,
     state: entry!.state,
