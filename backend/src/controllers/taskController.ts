@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { TaskState, TaskType } from '../services/taskService';
+import { TaskState, TaskType, TaskCategory } from '../services/taskService';
 import {
   createTask,
   deleteTask,
@@ -21,7 +21,7 @@ export const createTaskHandler = async (req: Request, res: Response) => {
     taskType: TaskType;
     dueDate?: string;
     parentId?: string;
-    category?: string;
+    category?: TaskCategory;
   };
 
   const task = await createTask(req.userId as string, payload);
@@ -33,7 +33,7 @@ export const updateTaskHandler = async (req: Request, res: Response) => {
     title: string;
     description?: string;
     dueDate?: string;
-    category?: string;
+    category?: TaskCategory;
   }>;
 
   const task = await updateTask(req.userId as string, req.params.taskId, payload);
