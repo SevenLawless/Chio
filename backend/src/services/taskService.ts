@@ -14,14 +14,6 @@ export enum TaskState {
   COMPLETED = 'COMPLETED',
 }
 
-export enum TaskCategory {
-  MAIN = 'MAIN',
-  MORNING = 'MORNING',
-  FOOD = 'FOOD',
-  BOOKS = 'BOOKS',
-  COURSES = 'COURSES',
-}
-
 interface Task {
   id: string;
   title: string;
@@ -32,7 +24,7 @@ interface Task {
   order: number;
   userId: string;
   parentId: string | null;
-  category: TaskCategory;
+  category: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,33 +57,20 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
   // Always use current UTC date - enforce single-day storage
   const targetDate = normalizeDate(dateInput);
 
-  // Category order mapping for sorting
-  const categoryOrder: Record<TaskCategory, number> = {
-    [TaskCategory.MAIN]: 1,
-    [TaskCategory.MORNING]: 2,
-    [TaskCategory.FOOD]: 3,
-    [TaskCategory.BOOKS]: 4,
-    [TaskCategory.COURSES]: 5,
-  };
-
   // Get all missions (top-level, parentId IS NULL): DAILY that aren't cancelled
   // Only DAILY missions are supported now (no ONE_TIME)
+  // Sort by category order from Category table, then by task order
   const missions = await query<Task>(
-    `SELECT * FROM Task 
-     WHERE userId = ? 
-     AND parentId IS NULL
-     AND taskType = 'DAILY'
-     AND isCancelled = FALSE
+    `SELECT t.* FROM Task t
+     LEFT JOIN Category c ON t.category = c.name AND c.userId = t.userId
+     WHERE t.userId = ? 
+     AND t.parentId IS NULL
+     AND t.taskType = 'DAILY'
+     AND t.isCancelled = FALSE
      ORDER BY 
-       CASE category
-         WHEN 'MAIN' THEN 1
-         WHEN 'MORNING' THEN 2
-         WHEN 'FOOD' THEN 3
-         WHEN 'BOOKS' THEN 4
-         WHEN 'COURSES' THEN 5
-       END,
-       \`order\` ASC, 
-       createdAt ASC`,
+       COALESCE(c.\`order\`, 999) ASC,
+       t.\`order\` ASC, 
+       t.createdAt ASC`,
     [userId]
   );
 
@@ -176,7 +155,7 @@ interface TaskInput {
   taskType: TaskType;
   dueDate?: string | null;
   parentId?: string | null;
-  category?: TaskCategory;
+  category?: string;
 }
 
 export const createTask = async (userId: string, input: TaskInput) => {
@@ -193,8 +172,8 @@ export const createTask = async (userId: string, input: TaskInput) => {
   const id = randomUUID();
   const description = input.description?.trim() || null;
   const parentId = input.parentId || null;
-  // Default to MAIN category if not provided, or inherit from parent for sub-tasks
-  let category: TaskCategory = input.category || TaskCategory.MAIN;
+  // Default to 'MAIN' category if not provided, or inherit from parent for sub-tasks
+  let category: string = input.category || 'MAIN';
   
   if (description && description.length > 1000) {
     throw new HttpError(400, 'Description must be 1000 characters or less');

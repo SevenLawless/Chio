@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TaskState, TaskType, TaskCategory } from '../services/taskService';
+import { TaskState, TaskType } from '../services/taskService';
 
 // Flexible date string validator (accepts both ISO datetime and date-only formats)
 const dateString = z.string().refine(
@@ -29,7 +29,7 @@ export const createTaskSchema = z.object({
     taskType: z.nativeEnum(TaskType),
     dueDate: dateString.optional(),
     parentId: z.string().uuid().optional(),
-    category: z.nativeEnum(TaskCategory).optional(),
+    category: z.string().max(191, 'Category name must be 191 characters or less').optional(),
   }),
 });
 
@@ -39,7 +39,7 @@ export const updateTaskSchema = z.object({
       title: z.string().max(200, 'Title must be 200 characters or less').optional(),
       description: z.string().max(1000, 'Description must be 1000 characters or less').optional(),
       dueDate: dateString.optional(),
-      category: z.nativeEnum(TaskCategory).optional(),
+      category: z.string().max(191, 'Category name must be 191 characters or less').optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
       message: 'At least one field is required',
