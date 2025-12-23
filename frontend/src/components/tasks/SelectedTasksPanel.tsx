@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useSelectedTasks, useRemoveSelectedTask, useUpdateSelectedTaskOrder, useSetTaskState, useTasks } from '../../features/tasks/hooks';
+import { useSelectedTasks, useRemoveSelectedTask, useSetTaskState, useTasks } from '../../features/tasks/hooks';
 import type { TaskState, SelectedTask } from '../../types/task';
 import { DroppableZone } from './DroppableZone';
 import { Button } from '../ui/Button';
@@ -17,7 +17,6 @@ const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
   const selectedTasksQuery = useSelectedTasks();
   const tasksQuery = useTasks(currentDate);
   const removeSelectedTask = useRemoveSelectedTask();
-  const updateSelectedTaskOrder = useUpdateSelectedTaskOrder();
   const updateState = useSetTaskState(currentDate);
 
   // Get full task details for selected tasks

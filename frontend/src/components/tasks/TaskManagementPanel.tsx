@@ -2,7 +2,16 @@ import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useCreateTask, useDeleteTask, useSetTaskState, useTasks, useUpdateTask, useUpdateTaskOrder, useAddSelectedTask, useSelectedTasks, useCategories } from '../../features/tasks/hooks';
+import {
+  useCreateTask,
+  useDeleteTask,
+  useSetTaskState,
+  useTasks,
+  useUpdateTask,
+  useUpdateTaskOrder,
+  useSelectedTasks,
+  useCategories,
+} from '../../features/tasks/hooks';
 import type { Mission, TaskState } from '../../types/task';
 import Modal from '../ui/Modal';
 import { MissionComposer } from './MissionComposer';
@@ -25,11 +34,10 @@ const TaskManagementPanel = () => {
   const deleteTask = useDeleteTask(currentDate);
   const updateState = useSetTaskState(currentDate);
   const updateOrder = useUpdateTaskOrder(currentDate);
-  const addSelectedTask = useAddSelectedTask();
 
   // Get selected task IDs for visual indication
   const selectedTaskIds = useMemo(() => {
-    return new Set(selectedTasksQuery.data?.map(st => st.taskId) || []);
+    return new Set(selectedTasksQuery.data?.map((st) => st.taskId) || []);
   }, [selectedTasksQuery.data]);
 
   // Filter and sort missions (only DAILY missions now)
@@ -38,8 +46,8 @@ const TaskManagementPanel = () => {
     return [...filtered].sort((a, b) => {
       // Sort by category order first (if categories are loaded)
       const categories = categoriesQuery.data || [];
-      const categoryA = categories.findIndex(c => c.name === a.category);
-      const categoryB = categories.findIndex(c => c.name === b.category);
+      const categoryA = categories.findIndex((c) => c.name === a.category);
+      const categoryB = categories.findIndex((c) => c.name === b.category);
       if (categoryA !== categoryB && categoryA !== -1 && categoryB !== -1) {
         return categoryA - categoryB;
       }
@@ -70,14 +78,14 @@ const TaskManagementPanel = () => {
     // Sort categories by their order
     const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
     const result: Record<string, Mission[]> = {};
-    sortedCategories.forEach(cat => {
+    sortedCategories.forEach((cat) => {
       if (grouped[cat.name]) {
         result[cat.name] = grouped[cat.name];
       }
     });
     // Add any uncategorized missions
-    Object.keys(grouped).forEach(catName => {
-      if (!categories.find(c => c.name === catName)) {
+    Object.keys(grouped).forEach((catName) => {
+      if (!categories.find((c) => c.name === catName)) {
         result[catName] = grouped[catName];
       }
     });
@@ -109,16 +117,24 @@ const TaskManagementPanel = () => {
     setAddingSubTaskToParent(null);
   };
 
-  const handleSave = async (values: { title: string; description?: string; taskType: string; dueDate?: string; parentId?: string; category?: string }) => {
+  const handleSave = async (values: {
+    title: string;
+    description?: string;
+    taskType: string;
+    dueDate?: string;
+    parentId?: string;
+    category?: string;
+  }) => {
     try {
-      const normalizedDescription = values.description && values.description.trim() ? values.description.trim() : undefined;
+      const normalizedDescription =
+        values.description && values.description.trim() ? values.description.trim() : undefined;
 
       if (editingTask) {
         const payload: { title: string; description?: string; category?: string } = {
           title: values.title,
           description: normalizedDescription,
         };
-        
+
         if (values.category && !editingTask.parentId) {
           payload.category = values.category;
         }
@@ -176,21 +192,18 @@ const TaskManagementPanel = () => {
     updateOrder.mutate(newOrder);
   };
 
-
   const isLoading = tasksQuery.isLoading;
 
   // Determine modal title and mode
-  const modalTitle = editingTask 
-    ? (editingTask.parentId ? 'Edit task' : 'Edit mission')
-    : addingSubTaskToParent 
-      ? 'Add task' 
+  const modalTitle = editingTask
+    ? editingTask.parentId
+      ? 'Edit task'
+      : 'Edit mission'
+    : addingSubTaskToParent
+      ? 'Add task'
       : 'New mission';
-  
-  const composerMode = editingTask 
-    ? 'edit' 
-    : addingSubTaskToParent 
-      ? 'subtask' 
-      : 'create';
+
+  const composerMode = editingTask ? 'edit' : addingSubTaskToParent ? 'subtask' : 'create';
 
   return (
     <div className="h-full flex flex-col space-y-6 overflow-y-auto">
@@ -214,7 +227,11 @@ const TaskManagementPanel = () => {
       </div>
 
       {tasksQuery.isError && (
-        <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6" role="alert" aria-live="polite">
+        <div
+          className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6"
+          role="alert"
+          aria-live="polite"
+        >
           <p className="font-semibold text-rose-200">Error loading missions</p>
           <p className="mt-2 text-sm text-rose-300">{(tasksQuery.error as Error).message}</p>
         </div>
@@ -225,7 +242,11 @@ const TaskManagementPanel = () => {
           <div className="inline-flex items-center gap-2 text-brand-300">
             <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
             </svg>
             <span>Loading missions…</span>
           </div>
@@ -241,7 +262,7 @@ const TaskManagementPanel = () => {
           {Object.entries(missionsByCategory).map(([categoryName, categoryMissions]) => {
             if (categoryMissions.length === 0) return null;
 
-            const category = categoriesQuery.data?.find(c => c.name === categoryName);
+            const category = categoriesQuery.data?.find((c) => c.name === categoryName);
 
             return (
               <div key={categoryName} className="space-y-4">
@@ -256,7 +277,10 @@ const TaskManagementPanel = () => {
                   </h3>
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
                 </div>
-                <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, categoryMissions)}>
+                <DndContext
+                  collisionDetection={closestCenter}
+                  onDragEnd={(e) => handleDragEnd(e, categoryMissions)}
+                >
                   <SortableContext items={categoryMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-4">
                       {categoryMissions.map((mission) => (
@@ -282,11 +306,7 @@ const TaskManagementPanel = () => {
         </div>
       )}
 
-      <Modal
-        open={isModalOpen}
-        onClose={closeModal}
-        title={modalTitle}
-      >
+      <Modal open={isModalOpen} onClose={closeModal} title={modalTitle}>
         <MissionComposer
           defaultValues={
             editingTask
@@ -309,4 +329,3 @@ const TaskManagementPanel = () => {
 };
 
 export default TaskManagementPanel;
-
