@@ -43,19 +43,27 @@ const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
       });
     });
 
-    return selectedTasks
-      .map(st => {
-        const taskDetails = allTasksFlat.find(t => t.id === st.taskId);
-        if (!taskDetails || !taskDetails.parentId) return null; // only subtasks with a parent (missions)
-        return {
-          ...st,
-          title: taskDetails.title,
-          description: taskDetails.description ?? null,
-          category: taskDetails.category,
-          parentId: taskDetails.parentId ?? null,
-        };
-      })
-      .filter((st): st is SelectedTask & { title: string; description: string | null; category: string; parentId: string | null } => st !== null)
+    type Detailed = SelectedTask & {
+      title: string;
+      description: string | null;
+      category: string;
+      parentId: string;
+    };
+
+    const mapped: Array<Detailed | null> = selectedTasks.map((st) => {
+      const taskDetails = allTasksFlat.find((t) => t.id === st.taskId);
+      if (!taskDetails || !taskDetails.parentId) return null; // only subtasks with a parent (missions)
+      return {
+        ...st,
+        title: taskDetails.title,
+        description: taskDetails.description ?? null,
+        category: taskDetails.category,
+        parentId: taskDetails.parentId,
+      };
+    });
+
+    return mapped
+      .filter((st): st is Detailed => st !== null)
       .sort((a, b) => a.order - b.order);
   }, [selectedTasksQuery.data, tasksQuery.data]);
 

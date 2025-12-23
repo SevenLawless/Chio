@@ -58,8 +58,7 @@ const SubTaskItem = ({ subTask, onCycleState, onEdit, onDelete, isSelected, onTo
         <Badge tone={copy.tone} className="text-xs px-1.5 py-0.5">{copy.label}</Badge>
         <Button
           variant={isSelected ? 'outline' : 'ghost'}
-          size="sm"
-          className="h-7 px-2 text-xs"
+          className="h-7 px-2 text-xs rounded-xl border border-brand-700/60"
           onClick={() => onToggleSelect(subTask.id)}
         >
           {isSelected ? 'Unselect' : 'Select'}
