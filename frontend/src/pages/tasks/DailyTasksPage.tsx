@@ -101,10 +101,10 @@ const DailyTasksPage = () => {
 
   const handleSave = async (values: { title: string; description?: string; taskType: string; dueDate?: string; parentId?: string; category?: TaskCategory }) => {
     try {
-      const normalizedDescription = values.description && values.description.trim() ? values.description.trim() : null;
+      const normalizedDescription = values.description && values.description.trim() ? values.description.trim() : undefined;
 
       if (editingTask) {
-        const payload: { title: string; description?: string | null; category?: TaskCategory } = {
+        const payload: { title: string; description?: string; category?: TaskCategory } = {
           title: values.title,
           description: normalizedDescription,
         };
