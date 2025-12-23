@@ -6,7 +6,6 @@ import { PublicRoute } from './components/PublicRoute';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DailyTasksPage from './pages/tasks/DailyTasksPage';
-import StatsPage from './pages/stats/StatsPage';
 
 export const router = createBrowserRouter([
   {
@@ -36,7 +35,6 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="tasks" replace /> },
           { path: 'tasks', element: <DailyTasksPage /> },
-          { path: 'stats', element: <StatsPage /> },
         ],
       },
     ],
