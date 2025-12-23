@@ -18,52 +18,20 @@ const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
   const categoriesQuery = useCategories();
 
   // Get full task details for selected tasks
+  // The backend already returns all needed fields including currentState
   const selectedTasksWithDetails = useMemo(() => {
-    const allTasks = tasksQuery.data || [];
     const selectedTasks = selectedTasksQuery.data || [];
+    const allTasks = tasksQuery.data || [];
 
-    // Flatten all tasks (missions + sub-tasks) to find matches
-    const allTasksFlat: Array<{ id: string; title: string; description?: string | null; category: string; parentId?: string | null }> = [];
-    allTasks.forEach(mission => {
-      allTasksFlat.push({
-        id: mission.id,
-        title: mission.title,
-        description: mission.description,
-        category: mission.category,
-        parentId: mission.parentId,
-      });
-      mission.subTasks?.forEach(subTask => {
-        allTasksFlat.push({
-          id: subTask.id,
-          title: subTask.title,
-          description: subTask.description,
-          category: subTask.category,
-          parentId: subTask.parentId,
-        });
-      });
+    // Create a map of mission IDs to mission titles for grouping
+    const missionMap = new Map<string, { title: string; category: string }>();
+    allTasks.forEach((mission) => {
+      missionMap.set(mission.id, { title: mission.title, category: mission.category });
     });
 
-    type Detailed = SelectedTask & {
-      title: string;
-      description: string | null;
-      category: string;
-      parentId: string;
-    };
-
-    const mapped: Array<Detailed | null> = selectedTasks.map((st) => {
-      const taskDetails = allTasksFlat.find((t) => t.id === st.taskId);
-      if (!taskDetails || !taskDetails.parentId) return null; // only subtasks with a parent (missions)
-      return {
-        ...st,
-        title: taskDetails.title,
-        description: taskDetails.description ?? null,
-        category: taskDetails.category,
-        parentId: taskDetails.parentId,
-      };
-    });
-
-    return mapped
-      .filter((st): st is Detailed => st !== null)
+    // Filter to only subtasks (those with a parentId) and ensure we have mission info
+    return selectedTasks
+      .filter((st) => st.parentId && missionMap.has(st.parentId))
       .sort((a, b) => a.order - b.order);
   }, [selectedTasksQuery.data, tasksQuery.data]);
 
@@ -121,13 +89,6 @@ const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
           {(() => {
             const categories = categoriesQuery.data || [];
 
-            type Detailed = SelectedTask & {
-              title: string;
-              description: string | null;
-              category: string;
-              parentId: string | null;
-            };
-
             // Group by category, then by mission (parentId)
             const grouped = new Map<
               string,
@@ -135,7 +96,7 @@ const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
                 string,
                 {
                   missionTitle: string;
-                  tasks: Detailed[];
+                  tasks: SelectedTask[];
                 }
               >
             >();
