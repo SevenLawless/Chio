@@ -52,8 +52,9 @@ export const getSelectedTasks = async (userId: string) => {
   const tasks = await query<Task>(
     `SELECT * FROM Task 
      WHERE id IN (${taskIds.map(() => '?').join(',')})
+     AND userId = ?
      AND isCancelled = FALSE`,
-    taskIds
+    [...taskIds, userId]
   );
 
   // Get current date for entry lookup

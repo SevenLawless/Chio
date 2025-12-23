@@ -80,9 +80,10 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
     ? await query<Task>(
         `SELECT * FROM Task 
          WHERE parentId IN (${missionIds.map(() => '?').join(',')})
+         AND userId = ?
          AND isCancelled = FALSE
          ORDER BY \`order\` ASC, createdAt ASC`,
-        missionIds
+        [...missionIds, userId]
       )
     : [];
 
@@ -202,8 +203,8 @@ export const createTask = async (userId: string, input: TaskInput) => {
   // For sub-tasks, get max order within the parent
   const maxOrderResult = parentId
     ? await queryOne<{ maxOrder: number }>(
-        'SELECT COALESCE(MAX(`order`), -1) as maxOrder FROM Task WHERE parentId = ?',
-        [parentId]
+        'SELECT COALESCE(MAX(`order`), -1) as maxOrder FROM Task WHERE parentId = ? AND userId = ?',
+        [parentId, userId]
       )
     : await queryOne<{ maxOrder: number }>(
         'SELECT COALESCE(MAX(`order`), -1) as maxOrder FROM Task WHERE userId = ? AND parentId IS NULL',
