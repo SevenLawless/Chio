@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import type { Mission, TaskState } from '../../types/task';
+import type { Category } from '../../types/task';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { Check, RotateCcw, Pencil, Trash2, GripVertical, Plus, ChevronDown, ChevronRight } from 'lucide-react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { Check, RotateCcw, Pencil, Trash2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 
 const stateCopy: Record<TaskState, { label: string; hint: string; tone: 'neutral' | 'success' }> = {
   NOT_STARTED: {
@@ -73,9 +72,11 @@ interface MissionCardProps {
   onDelete: (taskId: string) => void;
   onAddSubTask: (parentId: string) => void;
   isSelected?: boolean;
+  category?: Category;
+  onSelect?: () => void;
 }
 
-export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubTask, isSelected = false }: MissionCardProps) => {
+export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubTask, isSelected = false, category, onSelect }: MissionCardProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const nextState: TaskState = mission.currentState === 'COMPLETED' ? 'NOT_STARTED' : 'COMPLETED';
   const copy = stateCopy[mission.currentState];
@@ -85,37 +86,26 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
   const completedSubTasks = mission.subTasks?.filter(st => st.currentState === 'COMPLETED').length ?? 0;
   const totalSubTasks = mission.subTasks?.length ?? 0;
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: mission.id,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
   return (
     <div
-      ref={setNodeRef}
-      style={style}
+      onClick={onSelect}
       className={`rounded-3xl border border-brand-800/30 bg-brand-900/20 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-brand-900/30 hover:border-brand-700/40 ${
-        isDragging ? 'cursor-grabbing' : ''
-      } ${isSelected ? 'ring-2 ring-brand-500' : ''}`}
+        isSelected ? 'ring-2 ring-brand-500' : ''
+      } ${onSelect ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 flex-1">
-          <button
-            {...attributes}
-            {...listeners}
-            className="mt-1 cursor-grab active:cursor-grabbing text-white/40 hover:text-white/70 transition-colors touch-none"
-            aria-label="Drag to reorder"
-          >
-            <GripVertical className="h-5 w-5" />
-          </button>
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-lg font-semibold">{mission.title}</h3>
+              {/* Inline category badge */}
+              <Badge className="bg-brand-500/20 text-brand-300 border border-brand-500/30 flex items-center gap-1.5">
+                <span
+                  className="inline-flex h-2 w-2 rounded-full"
+                  style={{ backgroundColor: category?.color || '#8b5cf6' }}
+                />
+                {mission.category}
+              </Badge>
               {hasSubTasks && (
                 <Badge className="bg-brand-500/20 text-brand-300 border border-brand-500/30">
                   {completedSubTasks}/{totalSubTasks} tasks
@@ -125,7 +115,7 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
             {mission.description && <p className="mt-2 text-sm text-white/70">{mission.description}</p>}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" onClick={() => onEdit(mission)} aria-label="Edit mission">
             <Pencil className="h-4 w-4" />
           </Button>
@@ -137,7 +127,7 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
 
       {/* Sub-tasks section */}
       {hasSubTasks && (
-        <div className="mt-4">
+        <div className="mt-4" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="flex items-center gap-2 text-sm text-white/60 hover:text-white/80 transition-colors"
@@ -146,7 +136,7 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
             <span>Tasks ({totalSubTasks})</span>
           </button>
           {isExpanded && (
-            <div className="mt-3 space-y-2 pl-2 border-l-2 border-brand-800/30 ml-2">
+            <div className="mt-3 space-y-2 pl-2 border-l-2 border-brand-800/30 ml-2" onClick={(e) => e.stopPropagation()}>
               {mission.subTasks!.map((subTask) => (
                 <SubTaskItem
                   key={subTask.id}
@@ -164,7 +154,7 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Badge tone={copy.tone}>{copy.label}</Badge>
         <p className="text-sm text-white/60">{copy.hint}</p>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <Button 
             variant="ghost" 
             className="flex items-center gap-2 text-brand-300 hover:text-brand-200"

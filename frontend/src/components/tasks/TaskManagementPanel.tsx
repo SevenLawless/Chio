@@ -1,16 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import {
   useCreateTask,
   useDeleteTask,
   useSetTaskState,
   useTasks,
   useUpdateTask,
-  useUpdateTaskOrder,
   useSelectedTasks,
   useCategories,
+  useAddSelectedTask,
+  useRemoveSelectedTask,
 } from '../../features/tasks/hooks';
 import type { Mission, TaskState } from '../../types/task';
 import Modal from '../ui/Modal';
@@ -18,7 +17,6 @@ import { MissionComposer } from './MissionComposer';
 import { MissionCard } from './MissionCard';
 import { Button } from '../ui/Button';
 import { CategoryManager } from './CategoryManager';
-import { DraggableTask } from './DraggableTask';
 
 const TaskManagementPanel = () => {
   const currentDate = new Date();
@@ -33,7 +31,8 @@ const TaskManagementPanel = () => {
   const updateTask = useUpdateTask(currentDate);
   const deleteTask = useDeleteTask(currentDate);
   const updateState = useSetTaskState(currentDate);
-  const updateOrder = useUpdateTaskOrder(currentDate);
+  const addSelectedTask = useAddSelectedTask();
+  const removeSelectedTask = useRemoveSelectedTask();
 
   // Get selected task IDs for visual indication
   const selectedTaskIds = useMemo(() => {
@@ -62,36 +61,19 @@ const TaskManagementPanel = () => {
     });
   }, [tasksQuery.data, categoriesQuery.data]);
 
-  // Group missions by category
-  const missionsByCategory = useMemo(() => {
-    const categories = categoriesQuery.data || [];
-    const grouped: Record<string, Mission[]> = {};
-
-    missions.forEach((mission) => {
-      const categoryName = mission.category || 'Uncategorized';
-      if (!grouped[categoryName]) {
-        grouped[categoryName] = [];
+  // Handle click to toggle selection
+  const handleTaskClick = async (taskId: string) => {
+    const isSelected = selectedTaskIds.has(taskId);
+    try {
+      if (isSelected) {
+        await removeSelectedTask.mutateAsync(taskId);
+      } else {
+        await addSelectedTask.mutateAsync(taskId);
       }
-      grouped[categoryName].push(mission);
-    });
-
-    // Sort categories by their order
-    const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
-    const result: Record<string, Mission[]> = {};
-    sortedCategories.forEach((cat) => {
-      if (grouped[cat.name]) {
-        result[cat.name] = grouped[cat.name];
-      }
-    });
-    // Add any uncategorized missions
-    Object.keys(grouped).forEach((catName) => {
-      if (!categories.find((c) => c.name === catName)) {
-        result[catName] = grouped[catName];
-      }
-    });
-
-    return result;
-  }, [missions, categoriesQuery.data]);
+    } catch (error) {
+      console.error('Failed to toggle task selection:', error);
+    }
+  };
 
   const openCreateModal = () => {
     setEditingTask(null);
@@ -166,31 +148,6 @@ const TaskManagementPanel = () => {
     deleteTask.mutate(taskId);
   };
 
-  const handleDragEnd = (event: DragEndEvent, missionList: Mission[]) => {
-    const { active, over } = event;
-
-    if (!over || active.id === over.id) {
-      return;
-    }
-
-    const oldIndex = missionList.findIndex((m) => m.id === active.id);
-    const newIndex = missionList.findIndex((m) => m.id === over.id);
-
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
-    }
-
-    const reorderedMissions = [...missionList];
-    const [movedMission] = reorderedMissions.splice(oldIndex, 1);
-    reorderedMissions.splice(newIndex, 0, movedMission);
-
-    const newOrder = reorderedMissions.map((mission, index) => ({
-      taskId: mission.id,
-      order: index,
-    }));
-
-    updateOrder.mutate(newOrder);
-  };
 
   const isLoading = tasksQuery.isLoading;
 
@@ -257,49 +214,25 @@ const TaskManagementPanel = () => {
           <p className="mt-2 text-sm text-brand-300">Click "New mission" to get started.</p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {/* Group missions by category */}
-          {Object.entries(missionsByCategory).map(([categoryName, categoryMissions]) => {
-            if (categoryMissions.length === 0) return null;
-
-            const category = categoriesQuery.data?.find((c) => c.name === categoryName);
-
+        <div className="space-y-4">
+          {/* Display all missions in a flat list with inline category badges */}
+          {missions.map((mission) => {
+            const category = categoriesQuery.data?.find((c) => c.name === mission.category);
             return (
-              <div key={categoryName} className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <span
-                      className="inline-flex h-2 w-2 rounded-full"
-                      style={{ backgroundColor: category?.color || '#8b5cf6' }}
-                    />
-                    {categoryName}
-                  </h3>
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
-                </div>
-                <DndContext
-                  collisionDetection={closestCenter}
-                  onDragEnd={(e) => handleDragEnd(e, categoryMissions)}
-                >
-                  <SortableContext items={categoryMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-4">
-                      {categoryMissions.map((mission) => (
-                        <DraggableTask key={mission.id} id={mission.id}>
-                          <div className={selectedTaskIds.has(mission.id) ? 'ring-2 ring-brand-500 rounded-3xl' : ''}>
-                            <MissionCard
-                              mission={mission}
-                              onCycleState={cycleState}
-                              onEdit={openEditModal}
-                              onDelete={removeMission}
-                              onAddSubTask={openAddSubTaskModal}
-                              isSelected={selectedTaskIds.has(mission.id)}
-                            />
-                          </div>
-                        </DraggableTask>
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+              <div
+                key={mission.id}
+                className={selectedTaskIds.has(mission.id) ? 'ring-2 ring-brand-500 rounded-3xl' : ''}
+              >
+                <MissionCard
+                  mission={mission}
+                  onCycleState={cycleState}
+                  onEdit={openEditModal}
+                  onDelete={removeMission}
+                  onAddSubTask={openAddSubTaskModal}
+                  isSelected={selectedTaskIds.has(mission.id)}
+                  category={category}
+                  onSelect={() => handleTaskClick(mission.id)}
+                />
               </div>
             );
           })}
