@@ -10,7 +10,7 @@ interface CategoryManagerProps {
   onCategorySelect?: (categoryId: string) => void;
 }
 
-export const CategoryManager = ({ onCategorySelect }: CategoryManagerProps) => {
+export const CategoryManager = (_props: CategoryManagerProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryName, setCategoryName] = useState('');

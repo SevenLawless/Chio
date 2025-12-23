@@ -176,13 +176,6 @@ const TaskManagementPanel = () => {
     updateOrder.mutate(newOrder);
   };
 
-  const handleTaskDragToRight = async (taskId: string) => {
-    try {
-      await addSelectedTask.mutateAsync(taskId);
-    } catch (error) {
-      console.error('Failed to add selected task:', error);
-    }
-  };
 
   const isLoading = tasksQuery.isLoading;
 

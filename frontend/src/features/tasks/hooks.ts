@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTask, deleteTask, fetchTasks, setTaskState, updateTask, updateTaskOrder, fetchSelectedTasks, addSelectedTask, removeSelectedTask, updateSelectedTaskOrder, fetchCategories, createCategory, updateCategory, deleteCategory } from './api';
-import type { Mission, TaskState, TaskCategory, SelectedTask, Category } from '../../types/task';
+import type { Mission, TaskState, TaskCategory } from '../../types/task';
 import { formatDateParam } from '../../lib/date';
 import { useAuthStore } from '../../store/auth';
 

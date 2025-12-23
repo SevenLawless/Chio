@@ -12,7 +12,7 @@ interface SelectedTasksPanelProps {
   onDragEnd?: (activeId: string, overId: string) => void;
 }
 
-const SelectedTasksPanel = ({ onDragEnd }: SelectedTasksPanelProps) => {
+const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
   const currentDate = new Date();
   const selectedTasksQuery = useSelectedTasks();
   const tasksQuery = useTasks(currentDate);
@@ -53,12 +53,12 @@ const SelectedTasksPanel = ({ onDragEnd }: SelectedTasksPanelProps) => {
         return {
           ...st,
           title: taskDetails.title,
-          description: taskDetails.description,
+          description: taskDetails.description ?? null,
           category: taskDetails.category,
-          parentId: taskDetails.parentId,
+          parentId: taskDetails.parentId ?? null,
         };
       })
-      .filter((st): st is SelectedTask & { title: string; description?: string | null; category: string; parentId?: string | null } => st !== null)
+      .filter((st): st is SelectedTask & { title: string; description: string | null; category: string; parentId: string | null } => st !== null)
       .sort((a, b) => a.order - b.order);
   }, [selectedTasksQuery.data, tasksQuery.data]);
 
@@ -75,33 +75,9 @@ const SelectedTasksPanel = ({ onDragEnd }: SelectedTasksPanelProps) => {
     }
   };
 
-  const handleInternalDragEnd = (activeId: string, overId: string) => {
-    if (activeId === overId) {
-      return;
-    }
-
-    const tasks = selectedTasksWithDetails;
-    const oldIndex = tasks.findIndex((t) => t.taskId === activeId);
-    const newIndex = tasks.findIndex((t) => t.taskId === overId);
-
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
-    }
-
-    const reorderedTasks = [...tasks];
-    const [movedTask] = reorderedTasks.splice(oldIndex, 1);
-    reorderedTasks.splice(newIndex, 0, movedTask);
-
-    const newOrder = reorderedTasks.map((task, index) => ({
-      taskId: task.taskId,
-      order: index,
-    }));
-
-    updateSelectedTaskOrder.mutate(newOrder);
-  };
 
   // Sortable task item component
-  const SortableTaskItem = ({ task }: { task: SelectedTask & { title: string; description?: string | null; category: string; parentId?: string | null } }) => {
+  const SortableTaskItem = ({ task }: { task: SelectedTask & { title: string; description: string | null; category: string; parentId: string | null } }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
       id: task.taskId,
     });
