@@ -26,7 +26,7 @@ const DEFAULT_CATEGORIES = [
   { name: 'COURSES', color: null },
 ];
 
-export const listCategories = async (userId: string) => {
+export const listCategories = async (userId: string): Promise<Category[]> => {
   // Get all user categories
   const categories = await query<Category>(
     `SELECT * FROM Category 
@@ -44,7 +44,7 @@ export const listCategories = async (userId: string) => {
   return categories;
 };
 
-const createDefaultCategories = async (userId: string) => {
+const createDefaultCategories = async (userId: string): Promise<void> => {
   const now = new Date();
   
   for (let i = 0; i < DEFAULT_CATEGORIES.length; i++) {
