@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   useCreateTask,
   useDeleteTask,
@@ -10,19 +10,29 @@ import {
   useCategories,
   useAddSelectedTask,
   useRemoveSelectedTask,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
 } from '../../features/tasks/hooks';
-import type { Mission, TaskState } from '../../types/task';
+import type { Mission, TaskState, Category } from '../../types/task';
 import Modal from '../ui/Modal';
 import { MissionComposer } from './MissionComposer';
 import { MissionCard } from './MissionCard';
 import { Button } from '../ui/Button';
-import { CategoryManager } from './CategoryManager';
+import { Input } from '../ui/Input';
 
 const TaskManagementPanel = () => {
   const currentDate = new Date();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Mission | null>(null);
   const [addingSubTaskToParent, setAddingSubTaskToParent] = useState<string | null>(null);
+  
+  // Category modal state
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryColor, setCategoryColor] = useState('');
+  const [hoveredCategoryId, setHoveredCategoryId] = useState<string | null>(null);
 
   const tasksQuery = useTasks(currentDate);
   const selectedTasksQuery = useSelectedTasks();
@@ -33,6 +43,9 @@ const TaskManagementPanel = () => {
   const updateState = useSetTaskState(currentDate);
   const addSelectedTask = useAddSelectedTask();
   const removeSelectedTask = useRemoveSelectedTask();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
 
   // Selected task IDs (only sub-tasks should be selected)
   const selectedTaskIds = useMemo(() => {
@@ -148,6 +161,62 @@ const TaskManagementPanel = () => {
     deleteTask.mutate(taskId);
   };
 
+  // Category management functions
+  const openCreateCategoryModal = () => {
+    setEditingCategory(null);
+    setCategoryName('');
+    setCategoryColor('');
+    setIsCategoryModalOpen(true);
+  };
+
+  const openEditCategoryModal = (category: Category) => {
+    setEditingCategory(category);
+    setCategoryName(category.name);
+    setCategoryColor(category.color || '');
+    setIsCategoryModalOpen(true);
+  };
+
+  const closeCategoryModal = () => {
+    setIsCategoryModalOpen(false);
+    setEditingCategory(null);
+    setCategoryName('');
+    setCategoryColor('');
+  };
+
+  const handleCategorySave = async () => {
+    if (!categoryName.trim()) return;
+
+    try {
+      if (editingCategory) {
+        await updateCategory.mutateAsync({
+          categoryId: editingCategory.id,
+          payload: { name: categoryName.trim(), color: categoryColor.trim() || null },
+        });
+      } else {
+        await createCategory.mutateAsync({
+          name: categoryName.trim(),
+          color: categoryColor.trim() || null,
+        });
+      }
+      closeCategoryModal();
+    } catch (error) {
+      console.error('Failed to save category:', error);
+    }
+  };
+
+  const handleCategoryDelete = async (categoryId: string) => {
+    if (!confirm('Are you sure you want to delete this category? Tasks using this category will need to be reassigned.')) {
+      return;
+    }
+
+    try {
+      await deleteCategory.mutateAsync(categoryId);
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      alert('Cannot delete category that is in use by tasks');
+    }
+  };
+
 
   const isLoading = tasksQuery.isLoading;
 
@@ -171,16 +240,17 @@ const TaskManagementPanel = () => {
             <h2 className="text-2xl font-semibold text-white">Task Management</h2>
             <p className="text-sm text-white/60 mt-1">Create and organize your missions and tasks</p>
           </div>
-          <Button onClick={openCreateModal} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            New mission
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={openCreateCategoryModal} className="flex items-center gap-2" variant="outline">
+              <Plus className="h-4 w-4" />
+              New category
+            </Button>
+            <Button onClick={openCreateModal} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              New mission
+            </Button>
+          </div>
         </div>
-      </div>
-
-      {/* Category Manager */}
-      <div className="rounded-3xl border border-brand-800/30 bg-brand-900/20 p-6">
-        <CategoryManager />
       </div>
 
       {tasksQuery.isError && (
@@ -214,8 +284,8 @@ const TaskManagementPanel = () => {
           <p className="mt-2 text-sm text-brand-300">Click \"New mission\" to get started.</p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {/* Group by category: Category -> Missions -> Tasks */}
+        <div className="space-y-6">
+          {/* Unified Tree View: Category -> Missions -> Tasks */}
           {(() => {
             const categories = categoriesQuery.data || [];
             const missionsByCategory: Record<string, Mission[]> = {};
@@ -227,8 +297,10 @@ const TaskManagementPanel = () => {
               missionsByCategory[categoryName].push(mission);
             });
 
+            // Sort categories by order
+            const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
             const orderedCategoryNames: string[] = [
-              ...categories.map((c) => c.name),
+              ...sortedCategories.map((c) => c.name),
               ...Object.keys(missionsByCategory).filter(
                 (name) => !categories.some((c) => c.name === name),
               ),
@@ -240,9 +312,13 @@ const TaskManagementPanel = () => {
               const category = categories.find((c) => c.name === categoryName);
 
               return (
-                <div key={categoryName} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                <div key={categoryName} className="space-y-3">
+                  {/* Category Header with Context Menu */}
+                  <div
+                    className="relative flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-brand-900/20 transition-colors group"
+                    onMouseEnter={() => category && setHoveredCategoryId(category.id)}
+                    onMouseLeave={() => setHoveredCategoryId(null)}
+                  >
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       <span
                         className="inline-flex h-2 w-2 rounded-full"
@@ -250,21 +326,45 @@ const TaskManagementPanel = () => {
                       />
                       {categoryName}
                     </h3>
-                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                    {category && hoveredCategoryId === category.id && (
+                      <div className="ml-auto flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          onClick={() => openEditCategoryModal(category)}
+                          className="h-7 w-7 p-0"
+                          aria-label="Edit category"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleCategoryDelete(category.id)}
+                          className="h-7 w-7 p-0"
+                          aria-label="Delete category"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-4">
+                  
+                  {/* Missions (indented) */}
+                  <div className="pl-6 space-y-3">
                     {categoryMissions.map((mission) => (
-                      <MissionCard
-                        key={mission.id}
-                        mission={mission}
-                        onCycleState={cycleState}
-                        onEdit={openEditModal}
-                        onDelete={removeMission}
-                        onAddSubTask={openAddSubTaskModal}
-                        category={category}
-                        selectedTaskIds={selectedTaskIds}
-                        onToggleSelect={handleTaskClick}
-                      />
+                      <div key={mission.id} className="space-y-2">
+                        {/* Mission Card */}
+                        <MissionCard
+                          mission={mission}
+                          onCycleState={cycleState}
+                          onEdit={openEditModal}
+                          onDelete={removeMission}
+                          onAddSubTask={openAddSubTaskModal}
+                          category={category}
+                          selectedTaskIds={selectedTaskIds}
+                          onToggleSelect={handleTaskClick}
+                        />
+                        {/* Tasks (further indented) - already handled by MissionCard's expanded subTasks */}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -291,6 +391,43 @@ const TaskManagementPanel = () => {
           onSubmit={handleSave}
           isSubmitting={createTask.isPending || updateTask.isPending}
         />
+      </Modal>
+
+      {/* Category Modal */}
+      <Modal
+        open={isCategoryModalOpen}
+        onClose={closeCategoryModal}
+        title={editingCategory ? 'Edit Category' : 'New Category'}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Category Name</label>
+            <Input
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+              placeholder="Enter category name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Color (optional)</label>
+            <Input
+              value={categoryColor}
+              onChange={(e) => setCategoryColor(e.target.value)}
+              placeholder="#8b5cf6 or color name"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={closeCategoryModal}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCategorySave}
+              disabled={!categoryName.trim() || createCategory.isPending || updateCategory.isPending}
+            >
+              {editingCategory ? 'Update' : 'Create'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
