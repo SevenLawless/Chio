@@ -4,7 +4,6 @@ import { MotivationalSidePanels } from '../components/MotivationalSidePanels';
 
 const navItems = [
   { label: 'Daily Flow', to: '/app/tasks' },
-  { label: 'Insights', to: '/app/stats' },
 ];
 
 const AppLayout = () => {
@@ -37,7 +36,6 @@ const AppLayout = () => {
             <h1 className="text-2xl font-semibold tracking-tight text-white">CHIO</h1>
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <span className="rounded-full bg-brand-900/30 border border-brand-800/30 px-4 py-2 text-brand-300" aria-label="Current streak: 7 days">Focus streak · 7d</span>
             <button
               onClick={handleLogout}
               className="rounded-full border border-brand-700/40 px-4 py-2 text-white/80 transition hover:border-brand-600/60 hover:text-white hover:bg-brand-900/20 focus:outline-none focus:ring-2 focus:ring-brand-500/50"

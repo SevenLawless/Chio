@@ -1,125 +1,78 @@
 import { useMemo, useState } from 'react';
-import { format, startOfDay } from 'date-fns';
-import { CalendarDays, Plus, Flame, Trophy, Target, Crown, Rocket } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useCreateTask, useDeleteTask, useSetTaskState, useTasks, useUpdateTask, useUpdateTaskOrder } from '../../features/tasks/hooks';
-import type { Mission, TaskState, DayStatus } from '../../types/task';
+import type { Mission, TaskState, TaskCategory } from '../../types/task';
 import Modal from '../../components/ui/Modal';
 import { MissionComposer } from '../../components/tasks/MissionComposer';
 import { MissionCard } from '../../components/tasks/MissionCard';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 
-// Volume-based productivity thresholds
-const PRODUCTIVE_THRESHOLD = 11;
-const LEGENDARY_THRESHOLD = 20;
-
-// Calculate day status based on completion (volume takes priority)
-const getDayStatus = (completed: number, total: number): DayStatus => {
-  // Volume-based tiers take priority
-  if (completed >= LEGENDARY_THRESHOLD) return 'LEGENDARY';
-  if (completed >= PRODUCTIVE_THRESHOLD) return 'PRODUCTIVE';
-  
-  // Percentage-based tiers
-  if (total === 0) return 'NONE';
-  const percentage = completed / total;
-  if (percentage >= 1.0) return 'FLAWLESS';
-  if (percentage >= 0.7) return 'GOOD';
-  return 'NONE';
+// Category display names
+const categoryLabels: Record<TaskCategory, string> = {
+  MAIN: 'Main Missions',
+  MORNING: 'Morning Missions',
+  FOOD: 'Food',
+  BOOKS: 'Books',
+  COURSES: 'Courses',
 };
 
-// Get tasks needed for next tier
-const getProgressEncouragement = (completed: number, total: number): { message: string; target: string; needed: number } | null => {
-  // If already LEGENDARY, no encouragement needed
-  if (completed >= LEGENDARY_THRESHOLD) return null;
-  
-  // Next target is LEGENDARY
-  if (completed >= PRODUCTIVE_THRESHOLD) {
-    return {
-      message: `${LEGENDARY_THRESHOLD - completed} more to go`,
-      target: 'LEGENDARY',
-      needed: LEGENDARY_THRESHOLD - completed,
-    };
-  }
-  
-  // Next target is PRODUCTIVE
-  if (completed >= Math.ceil(total * 0.7)) {
-    return {
-      message: `${PRODUCTIVE_THRESHOLD - completed} more to hit`,
-      target: 'PRODUCTIVE',
-      needed: PRODUCTIVE_THRESHOLD - completed,
-    };
-  }
-  
-  // Next target is GOOD (70%)
-  const neededForGood = Math.ceil(total * 0.7) - completed;
-  if (neededForGood > 0) {
-    return {
-      message: `${neededForGood} more to hit`,
-      target: 'GOOD',
-      needed: neededForGood,
-    };
-  }
-  
-  return null;
-};
+// Category order for display
+const categoryOrder: TaskCategory[] = ['MAIN', 'MORNING', 'FOOD', 'BOOKS', 'COURSES'];
 
 const DailyTasksPage = () => {
-  const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  // Always use current date - no date picker
+  const currentDate = new Date();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Mission | null>(null);
   const [addingSubTaskToParent, setAddingSubTaskToParent] = useState<string | null>(null);
 
-  const tasksQuery = useTasks(selectedDate);
-  const createTask = useCreateTask(selectedDate);
-  const updateTask = useUpdateTask(selectedDate);
-  const deleteTask = useDeleteTask(selectedDate);
-  const updateState = useSetTaskState(selectedDate);
-  const updateOrder = useUpdateTaskOrder(selectedDate);
+  const tasksQuery = useTasks(currentDate);
+  const createTask = useCreateTask(currentDate);
+  const updateTask = useUpdateTask(currentDate);
+  const deleteTask = useDeleteTask(currentDate);
+  const updateState = useSetTaskState(currentDate);
+  const updateOrder = useUpdateTaskOrder(currentDate);
 
+  // Filter and sort missions (only DAILY missions now)
   const missions = useMemo(() => {
-    const filtered = tasksQuery.data?.filter((mission) => !mission.isCancelled) ?? [];
+    const filtered = tasksQuery.data?.filter((mission) => !mission.isCancelled && mission.taskType === 'DAILY') ?? [];
     return [...filtered].sort((a, b) => {
+      // First sort by category order
+      const categoryOrderA = categoryOrder.indexOf(a.category);
+      const categoryOrderB = categoryOrder.indexOf(b.category);
+      if (categoryOrderA !== categoryOrderB) {
+        return categoryOrderA - categoryOrderB;
+      }
+      // Then by order field
       const orderA = a.order ?? 0;
       const orderB = b.order ?? 0;
       if (orderA !== orderB) {
         return orderA - orderB;
       }
+      // Finally by creation date
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
   }, [tasksQuery.data]);
-  
-  const dailyMissions = useMemo(() => missions.filter((m) => m.taskType === 'DAILY'), [missions]);
-  const oneTimeMissions = useMemo(() => missions.filter((m) => m.taskType === 'ONE_TIME'), [missions]);
 
-  // Calculate progress stats (count missions and all sub-tasks)
-  const progressStats = useMemo(() => {
-    let total = 0;
-    let completed = 0;
+  // Group missions by category
+  const missionsByCategory = useMemo(() => {
+    const grouped: Record<TaskCategory, Mission[]> = {
+      MAIN: [],
+      MORNING: [],
+      FOOD: [],
+      BOOKS: [],
+      COURSES: [],
+    };
 
     missions.forEach((mission) => {
-      // Count the mission itself
-      total++;
-      if (mission.currentState === 'COMPLETED') completed++;
-
-      // Count sub-tasks
-      mission.subTasks?.forEach((subTask) => {
-        total++;
-        if (subTask.currentState === 'COMPLETED') completed++;
-      });
+      if (mission.category && grouped[mission.category]) {
+        grouped[mission.category].push(mission);
+      }
     });
 
-    const status = getDayStatus(completed, total);
-    const encouragement = getProgressEncouragement(completed, total);
-
-    return {
-      total,
-      completed,
-      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
-      status,
-      encouragement,
-    };
+    return grouped;
   }, [missions]);
 
   const openCreateModal = () => {
@@ -146,19 +99,18 @@ const DailyTasksPage = () => {
     setAddingSubTaskToParent(null);
   };
 
-  const handleSave = async (values: { title: string; description?: string; taskType: string; dueDate?: string; parentId?: string }) => {
+  const handleSave = async (values: { title: string; description?: string; taskType: string; dueDate?: string; parentId?: string; category?: TaskCategory }) => {
     try {
-      const normalizedDueDate = values.dueDate && values.dueDate.trim() ? values.dueDate.trim() : undefined;
       const normalizedDescription = values.description && values.description.trim() ? values.description.trim() : null;
 
       if (editingTask) {
-        const payload: { title: string; description?: string | null; dueDate?: string } = {
+        const payload: { title: string; description?: string | null; category?: TaskCategory } = {
           title: values.title,
           description: normalizedDescription,
         };
         
-        if (editingTask.taskType === 'ONE_TIME' && normalizedDueDate) {
-          payload.dueDate = normalizedDueDate;
+        if (values.category && !editingTask.parentId) {
+          payload.category = values.category;
         }
 
         await updateTask.mutateAsync({
@@ -169,8 +121,8 @@ const DailyTasksPage = () => {
         await createTask.mutateAsync({
           title: values.title,
           description: normalizedDescription || undefined,
-          taskType: values.taskType as Mission['taskType'],
-          dueDate: normalizedDueDate,
+          taskType: 'DAILY' as Mission['taskType'],
+          category: values.category || 'MAIN',
           parentId: values.parentId || addingSubTaskToParent || undefined,
         });
       }
@@ -231,113 +183,17 @@ const DailyTasksPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header with date and day status */}
+      {/* Header */}
       <div className="rounded-3xl border border-brand-800/30 bg-gradient-to-br from-brand-900/40 via-slate-900 to-black p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-white/70">Focus date</p>
-          <h2 className="text-2xl font-semibold text-white whitespace-nowrap">{format(selectedDate, 'EEE, MMM d')}</h2>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <label className="flex items-center gap-3 rounded-2xl border border-brand-800/30 bg-brand-900/20 px-4 py-2 text-white/80">
-            <CalendarDays className="h-4 w-4" />
-            <input
-              type="date"
-              value={format(selectedDate, 'yyyy-MM-dd')}
-              onChange={(event) => {
-                const value = event.target.value;
-                setSelectedDate(value ? startOfDay(new Date(value)) : startOfDay(new Date()));
-              }}
-              className="bg-transparent text-sm text-white focus:outline-none"
-            />
-          </label>
+          <div>
+            <h2 className="text-2xl font-semibold text-white">Daily Missions</h2>
+          </div>
           <Button onClick={openCreateModal} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
-              New mission
+            New mission
           </Button>
-          </div>
         </div>
-
-        {/* Progress indicator and day status */}
-        {!isLoading && missions.length > 0 && (
-          <div className="mt-6 space-y-3">
-            {/* Progress bar */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <div className="h-3 rounded-full bg-white/10 overflow-hidden">
-                  <div 
-                    className={`h-full transition-all duration-500 ${
-                      progressStats.status === 'LEGENDARY'
-                        ? 'bg-gradient-to-r from-fuchsia-500 to-purple-400'
-                        : progressStats.status === 'PRODUCTIVE'
-                          ? 'bg-gradient-to-r from-orange-500 to-red-400'
-                          : progressStats.status === 'FLAWLESS' 
-                            ? 'bg-gradient-to-r from-amber-400 to-yellow-300' 
-                            : progressStats.status === 'GOOD'
-                              ? 'bg-gradient-to-r from-brand-500 to-brand-400'
-                              : 'bg-brand-500'
-                    }`}
-                    style={{ width: `${progressStats.percentage}%` }}
-                  />
-                </div>
-              </div>
-              <span className="text-sm font-semibold text-white/80 tabular-nums">
-                {progressStats.completed}/{progressStats.total}
-              </span>
-            </div>
-
-            {/* Status badges and encouragement */}
-            <div className="flex flex-wrap items-center gap-3">
-              {progressStats.status === 'LEGENDARY' && (
-                <Badge className="bg-gradient-to-r from-fuchsia-500/30 to-purple-500/30 text-fuchsia-200 border border-fuchsia-400/50 flex items-center gap-1.5 animate-pulse">
-                  <Crown className="h-3.5 w-3.5" />
-                  LEGENDARY
-                </Badge>
-              )}
-              {progressStats.status === 'PRODUCTIVE' && (
-                <Badge className="bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-300 border border-orange-500/30 flex items-center gap-1.5">
-                  <Rocket className="h-3.5 w-3.5" />
-                  PRODUCTIVE
-                </Badge>
-              )}
-              {progressStats.status === 'FLAWLESS' && (
-                <Badge className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
-                  <Trophy className="h-3.5 w-3.5" />
-                  FLAWLESS
-                </Badge>
-              )}
-              {progressStats.status === 'GOOD' && (
-                <Badge className="bg-gradient-to-r from-brand-500/20 to-emerald-500/20 text-brand-300 border border-brand-500/30 flex items-center gap-1.5">
-                  <Flame className="h-3.5 w-3.5" />
-                  GOOD DAY
-                </Badge>
-              )}
-              
-              {/* Encouragement for next tier */}
-              {progressStats.encouragement && (
-                <p className="text-sm text-white/60 flex items-center gap-2">
-                  <Target className="h-4 w-4 text-brand-400" />
-                  <span>
-                    <span className="text-brand-300 font-semibold">{progressStats.encouragement.message}</span> {progressStats.encouragement.target}
-                  </span>
-                </p>
-              )}
-              
-              {/* Motivational message based on status */}
-              {progressStats.status !== 'NONE' && !progressStats.encouragement && (
-                <p className="text-sm text-white/60">
-                  {progressStats.status === 'LEGENDARY' 
-                    ? "GODDAMNNNNN, You best bring that extra long tape measure!" 
-                    : progressStats.status === 'PRODUCTIVE'
-                      ? "DAMN PRODUCTIVE DAY"
-                      : progressStats.status === 'FLAWLESS' 
-                        ? "Perfect execution! You're unstoppable!" 
-                        : "Great progress! Keep the momentum going!"}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {tasksQuery.isError && (
@@ -359,76 +215,45 @@ const DailyTasksPage = () => {
         </div>
       ) : !tasksQuery.isError && missions.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-brand-800/30 bg-brand-900/10 p-10 text-center text-white/70">
-          <p>No missions for this day.</p>
+          <p>No missions for today.</p>
           <p className="mt-2 text-sm text-brand-300">Click "New mission" to get started.</p>
         </div>
       ) : (
         <div className="space-y-8">
-          {/* One-Time Missions Section */}
-          {oneTimeMissions.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-white" />
-                  One-Time Missions
-                </h3>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
-              </div>
-              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, oneTimeMissions)}>
-                <SortableContext items={oneTimeMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-4">
-                    {oneTimeMissions.map((mission) => (
-                      <MissionCard
-                        key={mission.id}
-                        mission={mission}
-                        onCycleState={cycleState}
-                        onEdit={openEditModal}
-                        onDelete={removeMission}
-                        onAddSubTask={openAddSubTaskModal}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </div>
-          )}
+          {/* Group missions by category */}
+          {categoryOrder.map((category) => {
+            const categoryMissions = missionsByCategory[category];
+            if (categoryMissions.length === 0) return null;
 
-          {/* Daily Missions Section */}
-          {dailyMissions.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-white" />
-                  Daily Missions
-                </h3>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+            return (
+              <div key={category} className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-white" />
+                    {categoryLabels[category]}
+                  </h3>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                </div>
+                <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, categoryMissions)}>
+                  <SortableContext items={categoryMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-4">
+                      {categoryMissions.map((mission) => (
+                        <MissionCard
+                          key={mission.id}
+                          mission={mission}
+                          onCycleState={cycleState}
+                          onEdit={openEditModal}
+                          onDelete={removeMission}
+                          onAddSubTask={openAddSubTaskModal}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
-              <DndContext collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, dailyMissions)}>
-                <SortableContext items={dailyMissions.map((m) => m.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-4">
-                    {dailyMissions.map((mission) => (
-                      <MissionCard
-                        key={mission.id}
-                        mission={mission}
-                        onCycleState={cycleState}
-                        onEdit={openEditModal}
-                        onDelete={removeMission}
-                        onAddSubTask={openAddSubTaskModal}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </div>
-          )}
-
-          {dailyMissions.length === 0 && oneTimeMissions.length === 0 && missions.length > 0 && (
-            <div className="rounded-3xl border border-dashed border-brand-800/30 bg-brand-900/10 p-10 text-center text-white/70">
-              <p>No missions for this day.</p>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
 
@@ -444,7 +269,7 @@ const DailyTasksPage = () => {
                   title: editingTask.title,
                   description: editingTask.description ?? '',
                   taskType: editingTask.taskType,
-                  dueDate: editingTask.dueDate ? editingTask.dueDate.slice(0, 10) : '',
+                  category: editingTask.category,
                 }
               : undefined
           }

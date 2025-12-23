@@ -1,6 +1,6 @@
 export type TaskType = 'DAILY' | 'ONE_TIME';
 export type TaskState = 'NOT_STARTED' | 'COMPLETED' | 'SKIPPED';
-export type DayStatus = 'NONE' | 'GOOD' | 'FLAWLESS' | 'PRODUCTIVE' | 'LEGENDARY';
+export type TaskCategory = 'MAIN' | 'MORNING' | 'FOOD' | 'BOOKS' | 'COURSES';
 
 // A Mission is a top-level task, which can have sub-tasks
 export interface Mission {
@@ -12,6 +12,7 @@ export interface Mission {
   isCancelled: boolean;
   order: number;
   parentId?: string | null;
+  category: TaskCategory;
   currentState: TaskState;
   date: string;
   createdAt: string;
@@ -24,37 +25,4 @@ export interface TaskStateUpdate {
   state: TaskState;
   date: string;
   updatedAt: string;
-}
-
-export interface DayTotals {
-  completed: number;
-  skipped: number;
-  notStarted: number;
-  total: number;
-}
-
-export interface DayBreakdown {
-  date: string;
-  totals: DayTotals;
-  status: DayStatus;
-}
-
-export interface StatsResponse {
-  range: {
-    start: string;
-    end: string;
-  };
-  aggregates: DayTotals;
-  dailyBreakdown: DayBreakdown[];
-  streaks: {
-    current: number;
-    best: number;
-  };
-  dayStats: {
-    good: number;
-    flawless: number;
-    productive: number;
-    legendary: number;
-    total: number;
-  };
 }

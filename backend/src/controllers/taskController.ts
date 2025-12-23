@@ -21,6 +21,7 @@ export const createTaskHandler = async (req: Request, res: Response) => {
     taskType: TaskType;
     dueDate?: string;
     parentId?: string;
+    category?: string;
   };
 
   const task = await createTask(req.userId as string, payload);
@@ -32,6 +33,7 @@ export const updateTaskHandler = async (req: Request, res: Response) => {
     title: string;
     description?: string;
     dueDate?: string;
+    category?: string;
   }>;
 
   const task = await updateTask(req.userId as string, req.params.taskId, payload);

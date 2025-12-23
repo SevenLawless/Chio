@@ -128,11 +128,6 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-lg font-semibold">{mission.title}</h3>
-              {mission.taskType === 'DAILY' ? (
-                <Badge className="bg-white/10 text-white border border-white/20">Daily</Badge>
-              ) : (
-                <Badge className="bg-white/10 text-white border border-white/20">One-time</Badge>
-              )}
               {hasSubTasks && (
                 <Badge className="bg-brand-500/20 text-brand-300 border border-brand-500/30">
                   {completedSubTasks}/{totalSubTasks} tasks
@@ -140,11 +135,6 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
               )}
             </div>
             {mission.description && <p className="mt-2 text-sm text-white/70">{mission.description}</p>}
-            {mission.taskType === 'ONE_TIME' && mission.dueDate && (
-              <p className="mt-2 text-xs uppercase tracking-[0.3em] text-white/50">
-                Appears {new Date(mission.dueDate).toLocaleDateString()}
-              </p>
-            )}
           </div>
         </div>
         <div className="flex gap-2">

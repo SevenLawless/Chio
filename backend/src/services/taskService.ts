@@ -15,6 +15,14 @@ export enum TaskState {
   SKIPPED = 'SKIPPED',
 }
 
+export enum TaskCategory {
+  MAIN = 'MAIN',
+  MORNING = 'MORNING',
+  FOOD = 'FOOD',
+  BOOKS = 'BOOKS',
+  COURSES = 'COURSES',
+}
+
 interface Task {
   id: string;
   title: string;
@@ -25,6 +33,7 @@ interface Task {
   order: number;
   userId: string;
   parentId: string | null;
+  category: TaskCategory;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,59 +46,54 @@ interface TaskEntry {
   createdAt: Date;
 }
 
-const normalizeDate = (dateInput?: string) => {
-  if (!dateInput) {
-    return startOfDay(new Date());
-  }
-
-  // Handle date-only strings (YYYY-MM-DD format)
-  // parseISO treats date-only strings as UTC midnight, but we want local date
-  // So we parse it and then use startOfDay to ensure we get the local date boundary
-  let parsed: Date;
-  
-  // Check if it's a date-only string (YYYY-MM-DD)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
-    // For date-only strings, parse as local date by creating a date object directly
-    // This avoids timezone conversion issues
-    const [year, month, day] = dateInput.split('-').map(Number);
-    parsed = new Date(year, month - 1, day); // month is 0-indexed
-  } else {
-    // For full ISO strings, use parseISO
-    parsed = parseISO(dateInput);
-  }
-  
-  if (!isValid(parsed)) {
-    throw new HttpError(400, 'Invalid date format');
-  }
-  
-  // Validate date is not too far in the past or future
+// Get current UTC date at start of day
+const getCurrentUTCDate = () => {
   const now = new Date();
-  const minDate = new Date('1970-01-01');
-  const maxDate = new Date('2100-12-31');
-  
-  if (parsed < minDate || parsed > maxDate) {
-    throw new HttpError(400, 'Date must be between 1970 and 2100');
-  }
+  // Get UTC date components
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const day = now.getUTCDate();
+  // Create date at UTC midnight
+  return new Date(Date.UTC(year, month, day));
+};
 
-  // Always normalize to start of day to ensure consistent date boundaries
-  return startOfDay(parsed);
+const normalizeDate = (dateInput?: string) => {
+  // Always use current UTC date - no date input allowed
+  return getCurrentUTCDate();
 };
 
 export const listTasksForDate = async (userId: string, dateInput?: string) => {
+  // Always use current UTC date - enforce single-day storage
   const targetDate = normalizeDate(dateInput);
-  const nextDate = addDays(targetDate, 1);
 
-  // Get all missions (top-level, parentId IS NULL): DAILY that aren't cancelled OR ONE_TIME for this date
+  // Category order mapping for sorting
+  const categoryOrder: Record<TaskCategory, number> = {
+    [TaskCategory.MAIN]: 1,
+    [TaskCategory.MORNING]: 2,
+    [TaskCategory.FOOD]: 3,
+    [TaskCategory.BOOKS]: 4,
+    [TaskCategory.COURSES]: 5,
+  };
+
+  // Get all missions (top-level, parentId IS NULL): DAILY that aren't cancelled
+  // Only DAILY missions are supported now (no ONE_TIME)
   const missions = await query<Task>(
     `SELECT * FROM Task 
      WHERE userId = ? 
      AND parentId IS NULL
-     AND (
-       (taskType = 'DAILY' AND isCancelled = FALSE)
-       OR (taskType = 'ONE_TIME' AND DATE(dueDate) = DATE(?))
-     )
-     ORDER BY taskType ASC, \`order\` ASC, createdAt ASC`,
-    [userId, targetDate]
+     AND taskType = 'DAILY'
+     AND isCancelled = FALSE
+     ORDER BY 
+       CASE category
+         WHEN 'MAIN' THEN 1
+         WHEN 'MORNING' THEN 2
+         WHEN 'FOOD' THEN 3
+         WHEN 'BOOKS' THEN 4
+         WHEN 'COURSES' THEN 5
+       END,
+       \`order\` ASC, 
+       createdAt ASC`,
+    [userId]
   );
 
   // Get all sub-tasks (tasks with parentId) for these missions
@@ -141,6 +145,7 @@ export const listTasksForDate = async (userId: string, dateInput?: string) => {
       isCancelled: mission.isCancelled,
       order: mission.order,
       parentId: mission.parentId,
+      category: mission.category,
       currentState: entry?.state ?? TaskState.NOT_STARTED,
       date: targetDate.toISOString(),
       updatedAt: mission.updatedAt,
@@ -172,6 +177,7 @@ interface TaskInput {
   taskType: TaskType;
   dueDate?: string | null;
   parentId?: string | null;
+  category?: TaskCategory;
 }
 
 export const createTask = async (userId: string, input: TaskInput) => {
@@ -188,12 +194,14 @@ export const createTask = async (userId: string, input: TaskInput) => {
   const id = randomUUID();
   const description = input.description?.trim() || null;
   const parentId = input.parentId || null;
+  // Default to MAIN category if not provided, or inherit from parent for sub-tasks
+  let category: TaskCategory = input.category || TaskCategory.MAIN;
   
   if (description && description.length > 1000) {
     throw new HttpError(400, 'Description must be 1000 characters or less');
   }
 
-  // If parentId is provided, validate it exists and belongs to user
+  // If creating a sub-task, inherit category from parent
   if (parentId) {
     const parentTask = await queryOne<Task>(
       'SELECT * FROM Task WHERE id = ? AND userId = ?',
@@ -205,7 +213,10 @@ export const createTask = async (userId: string, input: TaskInput) => {
     if (parentTask.parentId) {
       throw new HttpError(400, 'Cannot create sub-task under another sub-task');
     }
+    // Inherit category from parent
+    category = parentTask.category;
   }
+
 
   const now = new Date();
   
@@ -222,22 +233,11 @@ export const createTask = async (userId: string, input: TaskInput) => {
       );
   const newOrder = (maxOrderResult?.maxOrder ?? -1) + 1;
   
-  if (input.taskType === TaskType.ONE_TIME) {
-    if (!input.dueDate && !parentId) {
-      throw new HttpError(400, 'One-time missions require a due date');
-    }
-    const dueDate = input.dueDate ? normalizeDate(input.dueDate) : null;
-    
-    await query(
-      'INSERT INTO Task (id, title, description, taskType, dueDate, userId, parentId, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description, TaskType.ONE_TIME, dueDate, userId, parentId, false, newOrder, now, now]
-    );
-  } else {
-    await query(
-      'INSERT INTO Task (id, title, description, taskType, userId, parentId, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description, TaskType.DAILY, userId, parentId, false, newOrder, now, now]
-    );
-  }
+  // Only DAILY tasks are supported now
+  await query(
+    'INSERT INTO Task (id, title, description, taskType, userId, parentId, category, isCancelled, `order`, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, title, description, TaskType.DAILY, userId, parentId, category, false, newOrder, now, now]
+  );
 
   return await queryOne<Task>('SELECT * FROM Task WHERE id = ?', [id]);
 };
@@ -276,9 +276,12 @@ export const updateTask = async (userId: string, taskId: string, input: Partial<
     values.push(description);
   }
 
-  if (task.taskType === TaskType.ONE_TIME && input.dueDate) {
-    updates.push('dueDate = ?');
-    values.push(normalizeDate(input.dueDate));
+  if (input.category !== undefined) {
+    // Only allow category updates for top-level missions (not sub-tasks)
+    if (!task.parentId) {
+      updates.push('category = ?');
+      values.push(input.category);
+    }
   }
 
   if (updates.length === 0) {
@@ -333,6 +336,7 @@ export const setTaskState = async (
     throw new HttpError(404, 'Task not found');
   }
 
+  // Always use current UTC date
   const targetDate = normalizeDate(dateInput);
 
   // Check if entry exists for this exact date

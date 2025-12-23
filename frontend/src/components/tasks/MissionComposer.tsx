@@ -1,29 +1,18 @@
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { TaskType } from '../../types/task';
+import type { TaskCategory } from '../../types/task';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 import { twMerge } from 'tailwind-merge';
 
-const schema = z
-  .object({
-    title: z.string().min(2, 'Give the mission a name'),
-    description: z.string().optional(),
-    taskType: z.enum(['DAILY', 'ONE_TIME']),
-    dueDate: z.string().optional(),
-    parentId: z.string().optional(),
-  })
-  .refine((values) => {
-    // One-time missions need a due date, but sub-tasks don't
-    if (values.taskType === 'ONE_TIME' && !values.parentId) {
-      return Boolean(values.dueDate);
-    }
-    return true;
-  }, {
-    message: 'Pick a date for one-time missions',
-    path: ['dueDate'],
-  });
+const schema = z.object({
+  title: z.string().min(2, 'Give the mission a name'),
+  description: z.string().optional(),
+  taskType: z.enum(['DAILY']).default('DAILY'),
+  category: z.enum(['MAIN', 'MORNING', 'FOOD', 'BOOKS', 'COURSES']).optional(),
+  parentId: z.string().optional(),
+});
 
 type FormValues = z.infer<typeof schema>;
 
@@ -35,15 +24,12 @@ interface MissionComposerProps {
   isSubmitting: boolean;
 }
 
-const typeLabels: Record<TaskType, { title: string; desc: string }> = {
-  DAILY: { 
-    title: 'Daily mission', 
-    desc: 'Loops back every morning' 
-  },
-  ONE_TIME: { 
-    title: 'One-time mission', 
-    desc: 'Appears on the selected date' 
-  },
+const categoryLabels: Record<TaskCategory, string> = {
+  MAIN: 'Main Missions',
+  MORNING: 'Morning Missions',
+  FOOD: 'Food',
+  BOOKS: 'Books',
+  COURSES: 'Courses',
 };
 
 export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSubmitting }: MissionComposerProps) => {
@@ -52,20 +38,17 @@ export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSub
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       title: defaultValues?.title ?? '',
       description: defaultValues?.description ?? '',
-      taskType: (defaultValues?.taskType as TaskType) ?? 'DAILY',
-      dueDate: defaultValues?.dueDate ?? '',
+      taskType: 'DAILY',
+      category: (defaultValues?.category as TaskCategory) ?? 'MAIN',
       parentId: parentId ?? defaultValues?.parentId ?? undefined,
     },
   });
-
-  const taskType = watch('taskType');
 
   const handleFormSubmit = (values: FormValues) => {
     // Ensure parentId is passed through
@@ -77,25 +60,23 @@ export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSub
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
-      {/* Type selector - only show for top-level missions, not sub-tasks */}
+      {/* Category selector - only show for top-level missions, not sub-tasks */}
       {!isSubTask && (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white/50">Mission type</p>
-          <div className="grid grid-cols-2 gap-3">
-            {(['DAILY', 'ONE_TIME'] as TaskType[]).map((type) => (
-              <label
-                key={type}
-                className={twMerge(
-                  'cursor-pointer rounded-2xl border border-brand-800/30 px-4 py-3 transition',
-                  taskType === type ? 'border-brand-500 bg-brand-500/20 text-white' : 'text-white/60 hover:border-brand-700/40 hover:bg-brand-900/10',
-                )}
-              >
-                <input type="radio" value={type} className="hidden" {...register('taskType')} />
-                <p className="text-sm font-semibold">{typeLabels[type].title}</p>
-                <p className="text-xs text-white/60">{typeLabels[type].desc}</p>
-              </label>
+          <label className="text-sm font-medium text-white/80" htmlFor="category">
+            Category
+          </label>
+          <select
+            id="category"
+            {...register('category')}
+            className="w-full rounded-xl border border-brand-800/30 bg-brand-900/20 px-4 py-3 text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+          >
+            {(['MAIN', 'MORNING', 'FOOD', 'BOOKS', 'COURSES'] as TaskCategory[]).map((category) => (
+              <option key={category} value={category}>
+                {categoryLabels[category]}
+              </option>
             ))}
-          </div>
+          </select>
         </div>
       )}
 
@@ -125,17 +106,6 @@ export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSub
         </label>
         <Textarea id="description" rows={3} placeholder="Any extra details..." {...register('description')} />
       </div>
-
-      {/* Due date only for ONE_TIME top-level missions */}
-      {taskType === 'ONE_TIME' && !isSubTask && (
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-white/80" htmlFor="dueDate">
-            Appears on
-          </label>
-          <Input id="dueDate" type="date" {...register('dueDate')} />
-          {errors.dueDate && <p className="text-sm text-rose-400">{errors.dueDate.message}</p>}
-        </div>
-      )}
 
       <button
         type="submit"
