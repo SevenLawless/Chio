@@ -120,8 +120,11 @@ export const useSetTaskState = (date: Date) => {
       setTaskState(taskId, { state, date: isoDate }),
     onMutate: async ({ taskId, state }) => {
       await queryClient.cancelQueries({ queryKey: taskKey(isoDate) });
+      await queryClient.cancelQueries({ queryKey: selectedTasksKey });
       const previous = queryClient.getQueryData<Mission[]>(taskKey(isoDate));
-      // Update state for both missions and sub-tasks
+      const previousSelected = queryClient.getQueryData(selectedTasksKey);
+      
+      // Update state for both missions and sub-tasks in tasks query
       queryClient.setQueryData<Mission[]>(taskKey(isoDate), (missions = []) =>
         missions.map((mission) => {
           if (mission.id === taskId) {
@@ -139,15 +142,29 @@ export const useSetTaskState = (date: Date) => {
           return mission;
         }),
       );
-      return { previous };
+
+      // Also optimistically update selected tasks query
+      queryClient.setQueryData(selectedTasksKey, (selectedTasks: any) => {
+        if (!selectedTasks) return selectedTasks;
+        return selectedTasks.map((st: any) =>
+          st.taskId === taskId ? { ...st, currentState: state } : st
+        );
+      });
+
+      return { previous, previousSelected };
     },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(taskKey(isoDate), context.previous);
       }
+      if (context?.previousSelected) {
+        queryClient.setQueryData(selectedTasksKey, context.previousSelected);
+      }
     },
     onSettled: () => {
+      // Invalidate both queries to ensure they're in sync
       queryClient.invalidateQueries({ queryKey: taskKey(isoDate) });
+      queryClient.invalidateQueries({ queryKey: selectedTasksKey });
     },
   });
 };
