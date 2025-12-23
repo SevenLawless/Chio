@@ -268,7 +268,7 @@ const DailyTasksPage = () => {
               ? {
                   title: editingTask.title,
                   description: editingTask.description ?? '',
-                  taskType: editingTask.taskType,
+                  taskType: 'DAILY' as const,
                   category: editingTask.category,
                 }
               : undefined

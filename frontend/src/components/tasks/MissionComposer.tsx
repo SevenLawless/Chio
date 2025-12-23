@@ -4,12 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { TaskCategory } from '../../types/task';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
-import { twMerge } from 'tailwind-merge';
 
 const schema = z.object({
   title: z.string().min(2, 'Give the mission a name'),
   description: z.string().optional(),
-  taskType: z.enum(['DAILY']).default('DAILY'),
+  taskType: z.literal('DAILY'),
   category: z.enum(['MAIN', 'MORNING', 'FOOD', 'BOOKS', 'COURSES']).optional(),
   parentId: z.string().optional(),
 });

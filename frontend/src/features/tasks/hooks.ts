@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTask, deleteTask, fetchTasks, setTaskState, updateTask, updateTaskOrder } from './api';
-import type { Mission, TaskState } from '../../types/task';
+import type { Mission, TaskState, TaskCategory } from '../../types/task';
 import { formatDateParam } from '../../lib/date';
 import { useAuthStore } from '../../store/auth';
 
@@ -34,7 +34,7 @@ export const useUpdateTask = (date: Date) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ taskId, payload }: { taskId: string; payload: Partial<{ title: string; description?: string | null; dueDate?: string | null; category?: string }> }) => 
+    mutationFn: ({ taskId, payload }: { taskId: string; payload: Partial<{ title: string; description?: string | null; dueDate?: string | null; category?: TaskCategory }> }) => 
       updateTask(taskId, payload),
     onMutate: async ({ taskId, payload }) => {
       // Cancel outgoing refetches
@@ -45,7 +45,7 @@ export const useUpdateTask = (date: Date) => {
       queryClient.setQueryData<Mission[]>(taskKey(isoDate), (missions = []) =>
         missions.map((mission) => {
           if (mission.id === taskId) {
-            return { ...mission, ...payload, updatedAt: new Date().toISOString() };
+            return { ...mission, ...payload, updatedAt: new Date().toISOString() } as Mission;
           }
           // Check sub-tasks
           if (mission.subTasks?.some(st => st.id === taskId)) {
@@ -53,7 +53,7 @@ export const useUpdateTask = (date: Date) => {
               ...mission,
               subTasks: mission.subTasks.map(st => 
                 st.id === taskId 
-                  ? { ...st, ...payload, updatedAt: new Date().toISOString() }
+                  ? { ...st, ...payload, updatedAt: new Date().toISOString() } as Mission
                   : st
               ),
             };
