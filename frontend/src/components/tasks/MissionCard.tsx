@@ -2,27 +2,20 @@ import { useState } from 'react';
 import type { Mission, TaskState } from '../../types/task';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { Check, SkipForward, RotateCcw, Pencil, Trash2, GripVertical, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, RotateCcw, Pencil, Trash2, GripVertical, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const stateOrder: TaskState[] = ['NOT_STARTED', 'COMPLETED', 'SKIPPED'];
-
-const stateCopy: Record<TaskState, { label: string; hint: string; tone: 'neutral' | 'success' | 'danger' }> = {
+const stateCopy: Record<TaskState, { label: string; hint: string; tone: 'neutral' | 'success' }> = {
   NOT_STARTED: {
-    label: 'Not started',
+    label: 'To-do',
     hint: 'Ready to dive in',
     tone: 'neutral',
   },
   COMPLETED: {
-    label: 'Completed',
+    label: 'Done',
     hint: 'Great momentum',
     tone: 'success',
-  },
-  SKIPPED: {
-    label: 'Skipped',
-    hint: 'Let it rest for now',
-    tone: 'danger',
   },
 };
 
@@ -34,8 +27,7 @@ interface SubTaskItemProps {
 }
 
 const SubTaskItem = ({ subTask, onCycleState, onEdit, onDelete }: SubTaskItemProps) => {
-  const currentIndex = stateOrder.indexOf(subTask.currentState);
-  const nextState = stateOrder[(currentIndex + 1) % stateOrder.length];
+  const nextState: TaskState = subTask.currentState === 'COMPLETED' ? 'NOT_STARTED' : 'COMPLETED';
   const copy = stateCopy[subTask.currentState];
 
   return (
@@ -45,19 +37,15 @@ const SubTaskItem = ({ subTask, onCycleState, onEdit, onDelete }: SubTaskItemPro
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
           subTask.currentState === 'COMPLETED'
             ? 'border-brand-500 bg-brand-500 text-white'
-            : subTask.currentState === 'SKIPPED'
-            ? 'border-rose-400 bg-rose-400/20 text-rose-400'
             : 'border-white/30 hover:border-white/50'
         }`}
         aria-label={`Mark ${stateCopy[nextState].label.toLowerCase()}`}
       >
         {subTask.currentState === 'COMPLETED' && <Check className="h-3.5 w-3.5" />}
-        {subTask.currentState === 'SKIPPED' && <SkipForward className="h-3 w-3" />}
       </button>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium ${
-          subTask.currentState === 'COMPLETED' ? 'text-white/50 line-through' : 
-          subTask.currentState === 'SKIPPED' ? 'text-white/40 line-through' : 'text-white'
+          subTask.currentState === 'COMPLETED' ? 'text-white/50 line-through' : 'text-white'
         }`}>
           {subTask.title}
         </p>
@@ -84,12 +72,12 @@ interface MissionCardProps {
   onEdit: (task: Mission) => void;
   onDelete: (taskId: string) => void;
   onAddSubTask: (parentId: string) => void;
+  isSelected?: boolean;
 }
 
-export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubTask }: MissionCardProps) => {
+export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubTask, isSelected = false }: MissionCardProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const currentIndex = stateOrder.indexOf(mission.currentState);
-  const nextState = stateOrder[(currentIndex + 1) % stateOrder.length];
+  const nextState: TaskState = mission.currentState === 'COMPLETED' ? 'NOT_STARTED' : 'COMPLETED';
   const copy = stateCopy[mission.currentState];
   const hasSubTasks = mission.subTasks && mission.subTasks.length > 0;
 
@@ -113,7 +101,7 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
       style={style}
       className={`rounded-3xl border border-brand-800/30 bg-brand-900/20 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-brand-900/30 hover:border-brand-700/40 ${
         isDragging ? 'cursor-grabbing' : ''
-      }`}
+      } ${isSelected ? 'ring-2 ring-brand-500' : ''}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 flex-1">
@@ -187,7 +175,6 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
           </Button>
           <Button variant="outline" className="flex items-center gap-2" onClick={() => onCycleState(mission.id, nextState)}>
             {nextState === 'COMPLETED' && <Check className="h-4 w-4" />}
-            {nextState === 'SKIPPED' && <SkipForward className="h-4 w-4" />}
             {nextState === 'NOT_STARTED' && <RotateCcw className="h-4 w-4" />}
             <span>Mark {stateCopy[nextState].label.toLowerCase()}</span>
           </Button>

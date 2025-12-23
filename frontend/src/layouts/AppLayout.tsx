@@ -1,16 +1,26 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { MotivationalSidePanels } from '../components/MotivationalSidePanels';
+import { useMemo } from 'react';
 
 const navItems = [
   { label: 'Daily Flow', to: '/app/tasks' },
 ];
+
+// Randomly select a background image from back1.jpg to back5.jpg
+const getRandomBackground = () => {
+  const randomNum = Math.floor(Math.random() * 5) + 1;
+  return `/img/back/back${randomNum}.jpg`;
+};
 
 const AppLayout = () => {
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Memoize background image to persist across re-renders
+  const backgroundImage = useMemo(() => getRandomBackground(), []);
 
   const handleLogout = () => {
     clearAuth();
@@ -22,7 +32,7 @@ const AppLayout = () => {
       {/* Dimmed background image */}
       <div 
         className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-15 pointer-events-none"
-        style={{ backgroundImage: "url('/img/180428.jpg')" }}
+        style={{ backgroundImage: `url('${backgroundImage}')` }}
         aria-hidden="true"
       />
       

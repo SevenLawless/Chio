@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTask, deleteTask, fetchTasks, setTaskState, updateTask, updateTaskOrder } from './api';
-import type { Mission, TaskState, TaskCategory } from '../../types/task';
+import { createTask, deleteTask, fetchTasks, setTaskState, updateTask, updateTaskOrder, fetchSelectedTasks, addSelectedTask, removeSelectedTask, updateSelectedTaskOrder, fetchCategories, createCategory, updateCategory, deleteCategory } from './api';
+import type { Mission, TaskState, TaskCategory, SelectedTask, Category } from '../../types/task';
 import { formatDateParam } from '../../lib/date';
 import { useAuthStore } from '../../store/auth';
 
@@ -181,6 +181,99 @@ export const useUpdateTaskOrder = (date: Date) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKey(isoDate) });
+    },
+  });
+};
+
+// Selected tasks hooks
+const selectedTasksKey = ['selectedTasks'];
+
+export const useSelectedTasks = () => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery({
+    queryKey: selectedTasksKey,
+    queryFn: fetchSelectedTasks,
+    enabled: !!token,
+  });
+};
+
+export const useAddSelectedTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: addSelectedTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: selectedTasksKey });
+    },
+  });
+};
+
+export const useRemoveSelectedTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: removeSelectedTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: selectedTasksKey });
+    },
+  });
+};
+
+export const useUpdateSelectedTaskOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (taskOrders: Array<{ taskId: string; order: number }>) => updateSelectedTaskOrder(taskOrders),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: selectedTasksKey });
+    },
+  });
+};
+
+// Categories hooks
+const categoriesKey = ['categories'];
+
+export const useCategories = () => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery({
+    queryKey: categoriesKey,
+    queryFn: fetchCategories,
+    enabled: !!token,
+  });
+};
+
+export const useCreateCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createCategory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: categoriesKey });
+    },
+  });
+};
+
+export const useUpdateCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ categoryId, payload }: { categoryId: string; payload: Partial<{ name: string; color?: string | null }> }) =>
+      updateCategory(categoryId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: categoriesKey });
+    },
+  });
+};
+
+export const useDeleteCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteCategory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: categoriesKey });
     },
   });
 };

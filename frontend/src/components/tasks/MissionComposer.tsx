@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { TaskCategory } from '../../types/task';
+import { useCategories } from '../../features/tasks/hooks';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 
@@ -9,7 +9,7 @@ const schema = z.object({
   title: z.string().min(2, 'Give the mission a name'),
   description: z.string().optional(),
   taskType: z.literal('DAILY'),
-  category: z.enum(['MAIN', 'MORNING', 'FOOD', 'BOOKS', 'COURSES']).optional(),
+  category: z.string().optional(),
   parentId: z.string().optional(),
 });
 
@@ -23,16 +23,9 @@ interface MissionComposerProps {
   isSubmitting: boolean;
 }
 
-const categoryLabels: Record<TaskCategory, string> = {
-  MAIN: 'Main Missions',
-  MORNING: 'Morning Missions',
-  FOOD: 'Food',
-  BOOKS: 'Books',
-  COURSES: 'Courses',
-};
-
 export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSubmitting }: MissionComposerProps) => {
   const isSubTask = mode === 'subtask' || !!parentId;
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
   
   const {
     register,
@@ -44,7 +37,7 @@ export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSub
       title: defaultValues?.title ?? '',
       description: defaultValues?.description ?? '',
       taskType: 'DAILY',
-      category: (defaultValues?.category as TaskCategory) ?? 'MAIN',
+      category: defaultValues?.category ?? categories?.[0]?.name ?? 'MAIN',
       parentId: parentId ?? defaultValues?.parentId ?? undefined,
     },
   });
@@ -65,17 +58,21 @@ export const MissionComposer = ({ defaultValues, onSubmit, mode, parentId, isSub
           <label className="text-sm font-medium text-white/80" htmlFor="category">
             Category
           </label>
-          <select
-            id="category"
-            {...register('category')}
-            className="w-full rounded-xl border border-brand-800/30 bg-brand-900/20 px-4 py-3 text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-          >
-            {(['MAIN', 'MORNING', 'FOOD', 'BOOKS', 'COURSES'] as TaskCategory[]).map((category) => (
-              <option key={category} value={category}>
-                {categoryLabels[category]}
-              </option>
-            ))}
-          </select>
+          {categoriesLoading ? (
+            <div className="text-white/60 text-sm">Loading categories...</div>
+          ) : (
+            <select
+              id="category"
+              {...register('category')}
+              className="w-full rounded-xl border border-brand-800/30 bg-brand-900/20 px-4 py-3 text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            >
+              {categories?.map((category) => (
+                <option key={category.id} value={category.name}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 

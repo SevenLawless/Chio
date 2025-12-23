@@ -12,7 +12,6 @@ export enum TaskType {
 export enum TaskState {
   NOT_STARTED = 'NOT_STARTED',
   COMPLETED = 'COMPLETED',
-  SKIPPED = 'SKIPPED',
 }
 
 export enum TaskCategory {
@@ -365,7 +364,7 @@ export const setTaskState = async (
     [taskId, targetDate]
   );
 
-  // Auto-complete parent mission if all sub-tasks are completed or skipped
+  // Auto-complete parent mission if all sub-tasks are completed
   if (task.parentId) {
     const siblings = await query<{ id: string; state: TaskState | null }>(
       `SELECT t.id, te.state FROM Task t
@@ -375,7 +374,7 @@ export const setTaskState = async (
     );
 
     const allDone = siblings.length > 0 && siblings.every(
-      s => s.state === TaskState.COMPLETED || s.state === TaskState.SKIPPED
+      s => s.state === TaskState.COMPLETED
     );
 
     if (allDone) {
