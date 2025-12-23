@@ -3,7 +3,6 @@ import cors from 'cors';
 import morgan from 'morgan';
 import authRoutes from './routes/auth';
 import taskRoutes from './routes/tasks';
-import statsRoutes from './routes/stats';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -21,7 +20,6 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Da
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
-app.use('/api/stats', statsRoutes);
 
 app.use(errorHandler);
 
