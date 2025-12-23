@@ -34,7 +34,7 @@ const TaskManagementPanel = () => {
   const addSelectedTask = useAddSelectedTask();
   const removeSelectedTask = useRemoveSelectedTask();
 
-  // Get selected task IDs for visual indication
+  // Selected task IDs (only sub-tasks should be selected)
   const selectedTaskIds = useMemo(() => {
     return new Set(selectedTasksQuery.data?.map((st) => st.taskId) || []);
   }, [selectedTasksQuery.data]);
@@ -211,31 +211,66 @@ const TaskManagementPanel = () => {
       ) : !tasksQuery.isError && missions.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-brand-800/30 bg-brand-900/10 p-10 text-center text-white/70">
           <p>No missions yet.</p>
-          <p className="mt-2 text-sm text-brand-300">Click "New mission" to get started.</p>
+          <p className="mt-2 text-sm text-brand-300">Click \"New mission\" to get started.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Display all missions in a flat list with inline category badges */}
-          {missions.map((mission) => {
-            const category = categoriesQuery.data?.find((c) => c.name === mission.category);
-            return (
-              <div
-                key={mission.id}
-                className={selectedTaskIds.has(mission.id) ? 'ring-2 ring-brand-500 rounded-3xl' : ''}
-              >
-                <MissionCard
-                  mission={mission}
-                  onCycleState={cycleState}
-                  onEdit={openEditModal}
-                  onDelete={removeMission}
-                  onAddSubTask={openAddSubTaskModal}
-                  isSelected={selectedTaskIds.has(mission.id)}
-                  category={category}
-                  onSelect={() => handleTaskClick(mission.id)}
-                />
-              </div>
-            );
-          })}
+        <div className="space-y-8">
+          {/* Group by category: Category -> Missions -> Tasks */}
+          {(() => {
+            const categories = categoriesQuery.data || [];
+            const missionsByCategory: Record<string, Mission[]> = {};
+            missions.forEach((mission) => {
+              const categoryName = mission.category || 'Uncategorized';
+              if (!missionsByCategory[categoryName]) {
+                missionsByCategory[categoryName] = [];
+              }
+              missionsByCategory[categoryName].push(mission);
+            });
+
+            const orderedCategoryNames: string[] = [
+              ...categories.map((c) => c.name),
+              ...Object.keys(missionsByCategory).filter(
+                (name) => !categories.some((c) => c.name === name),
+              ),
+            ];
+
+            return orderedCategoryNames.map((categoryName) => {
+              const categoryMissions = missionsByCategory[categoryName];
+              if (!categoryMissions || categoryMissions.length === 0) return null;
+              const category = categories.find((c) => c.name === categoryName);
+
+              return (
+                <div key={categoryName} className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <span
+                        className="inline-flex h-2 w-2 rounded-full"
+                        style={{ backgroundColor: category?.color || '#8b5cf6' }}
+                      />
+                      {categoryName}
+                    </h3>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                  </div>
+                  <div className="space-y-4">
+                    {categoryMissions.map((mission) => (
+                      <MissionCard
+                        key={mission.id}
+                        mission={mission}
+                        onCycleState={cycleState}
+                        onEdit={openEditModal}
+                        onDelete={removeMission}
+                        onAddSubTask={openAddSubTaskModal}
+                        category={category}
+                        selectedTaskIds={selectedTaskIds}
+                        onToggleSelect={handleTaskClick}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 

@@ -23,9 +23,11 @@ interface SubTaskItemProps {
   onCycleState: (taskId: string, next: TaskState) => void;
   onEdit: (task: Mission) => void;
   onDelete: (taskId: string) => void;
+  isSelected: boolean;
+  onToggleSelect: (taskId: string) => void;
 }
 
-const SubTaskItem = ({ subTask, onCycleState, onEdit, onDelete }: SubTaskItemProps) => {
+const SubTaskItem = ({ subTask, onCycleState, onEdit, onDelete, isSelected, onToggleSelect }: SubTaskItemProps) => {
   const nextState: TaskState = subTask.currentState === 'COMPLETED' ? 'NOT_STARTED' : 'COMPLETED';
   const copy = stateCopy[subTask.currentState];
 
@@ -54,6 +56,14 @@ const SubTaskItem = ({ subTask, onCycleState, onEdit, onDelete }: SubTaskItemPro
       </div>
       <div className="flex items-center gap-1">
         <Badge tone={copy.tone} className="text-xs px-1.5 py-0.5">{copy.label}</Badge>
+        <Button
+          variant={isSelected ? 'outline' : 'ghost'}
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={() => onToggleSelect(subTask.id)}
+        >
+          {isSelected ? 'Unselect' : 'Select'}
+        </Button>
         <Button variant="ghost" onClick={() => onEdit(subTask)} className="h-7 w-7 p-0">
           <Pencil className="h-3 w-3" />
         </Button>
@@ -71,12 +81,21 @@ interface MissionCardProps {
   onEdit: (task: Mission) => void;
   onDelete: (taskId: string) => void;
   onAddSubTask: (parentId: string) => void;
-  isSelected?: boolean;
   category?: Category;
-  onSelect?: () => void;
+  selectedTaskIds?: Set<string>;
+  onToggleSelect?: (taskId: string) => void;
 }
 
-export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubTask, isSelected = false, category, onSelect }: MissionCardProps) => {
+export const MissionCard = ({
+  mission,
+  onCycleState,
+  onEdit,
+  onDelete,
+  onAddSubTask,
+  category,
+  selectedTaskIds,
+  onToggleSelect,
+}: MissionCardProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const nextState: TaskState = mission.currentState === 'COMPLETED' ? 'NOT_STARTED' : 'COMPLETED';
   const copy = stateCopy[mission.currentState];
@@ -86,13 +105,10 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
   const completedSubTasks = mission.subTasks?.filter(st => st.currentState === 'COMPLETED').length ?? 0;
   const totalSubTasks = mission.subTasks?.length ?? 0;
 
+  const isTaskSelected = (taskId: string) => selectedTaskIds?.has(taskId) ?? false;
+
   return (
-    <div
-      onClick={onSelect}
-      className={`rounded-3xl border border-brand-800/30 bg-brand-900/20 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-brand-900/30 hover:border-brand-700/40 ${
-        isSelected ? 'ring-2 ring-brand-500' : ''
-      } ${onSelect ? 'cursor-pointer' : ''}`}
-    >
+    <div className="rounded-3xl border border-brand-800/30 bg-brand-900/20 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-brand-900/30 hover:border-brand-700/40">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 flex-1">
           <div className="flex-1">
@@ -127,16 +143,19 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
 
       {/* Sub-tasks section */}
       {hasSubTasks && (
-        <div className="mt-4" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-4">
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
             className="flex items-center gap-2 text-sm text-white/60 hover:text-white/80 transition-colors"
           >
             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span>Tasks ({totalSubTasks})</span>
           </button>
           {isExpanded && (
-            <div className="mt-3 space-y-2 pl-2 border-l-2 border-brand-800/30 ml-2" onClick={(e) => e.stopPropagation()}>
+            <div className="mt-3 space-y-2 pl-2 border-l-2 border-brand-800/30 ml-2">
               {mission.subTasks!.map((subTask) => (
                 <SubTaskItem
                   key={subTask.id}
@@ -144,6 +163,8 @@ export const MissionCard = ({ mission, onCycleState, onEdit, onDelete, onAddSubT
                   onCycleState={onCycleState}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  isSelected={isTaskSelected(subTask.id)}
+                  onToggleSelect={onToggleSelect ?? (() => {})}
                 />
               ))}
             </div>

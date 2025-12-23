@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useSelectedTasks, useRemoveSelectedTask, useSetTaskState, useTasks } from '../../features/tasks/hooks';
+import { useSelectedTasks, useRemoveSelectedTask, useSetTaskState, useTasks, useCategories } from '../../features/tasks/hooks';
 import type { TaskState, SelectedTask } from '../../types/task';
 import { Button } from '../ui/Button';
 import { Check, X } from 'lucide-react';
@@ -15,6 +15,7 @@ const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
   const tasksQuery = useTasks(currentDate);
   const removeSelectedTask = useRemoveSelectedTask();
   const updateState = useSetTaskState(currentDate);
+  const categoriesQuery = useCategories();
 
   // Get full task details for selected tasks
   const selectedTasksWithDetails = useMemo(() => {
@@ -45,7 +46,7 @@ const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
     return selectedTasks
       .map(st => {
         const taskDetails = allTasksFlat.find(t => t.id === st.taskId);
-        if (!taskDetails) return null;
+        if (!taskDetails || !taskDetails.parentId) return null; // only subtasks with a parent (missions)
         return {
           ...st,
           title: taskDetails.title,
@@ -108,52 +109,150 @@ const SelectedTasksPanel = (_props: SelectedTasksPanelProps) => {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          {selectedTasksWithDetails.map((task) => (
-            <div
-              key={task.id}
-              className="rounded-3xl border border-brand-800/30 bg-brand-900/20 p-5 text-white shadow-card transition hover:-translate-y-1 hover:bg-brand-900/30 hover:border-brand-700/40"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3 flex-1">
-                  <button
-                    onClick={() => handleToggleState(task.taskId, task.currentState)}
-                    className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
-                      task.currentState === 'COMPLETED'
-                        ? 'border-brand-500 bg-brand-500 text-white'
-                        : 'border-white/30 hover:border-white/50'
-                    }`}
-                    aria-label={task.currentState === 'COMPLETED' ? 'Mark as not started' : 'Mark as completed'}
-                  >
-                    {task.currentState === 'COMPLETED' && <Check className="h-3.5 w-3.5" />}
-                  </button>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className={`text-lg font-semibold ${task.currentState === 'COMPLETED' ? 'text-white/50 line-through' : 'text-white'}`}>
-                        {task.title}
-                      </h3>
-                      <Badge tone={task.currentState === 'COMPLETED' ? 'success' : 'neutral'}>
-                        {task.currentState === 'COMPLETED' ? 'Done' : 'To-do'}
-                      </Badge>
-                    </div>
-                    {task.description && (
-                      <p className={`mt-2 text-sm ${task.currentState === 'COMPLETED' ? 'text-white/40 line-through' : 'text-white/70'}`}>
-                        {task.description}
-                      </p>
-                    )}
+        <div className="space-y-6">
+          {(() => {
+            const categories = categoriesQuery.data || [];
+
+            type Detailed = SelectedTask & {
+              title: string;
+              description: string | null;
+              category: string;
+              parentId: string | null;
+            };
+
+            // Group by category, then by mission (parentId)
+            const grouped = new Map<
+              string,
+              Map<
+                string,
+                {
+                  missionTitle: string;
+                  tasks: Detailed[];
+                }
+              >
+            >();
+
+            const missionMap = new Map<string, { title: string; category: string }>();
+            (tasksQuery.data || []).forEach((mission) => {
+              missionMap.set(mission.id, { title: mission.title, category: mission.category });
+            });
+
+            selectedTasksWithDetails.forEach((task) => {
+              const parentId = task.parentId!;
+              const missionInfo = missionMap.get(parentId);
+              const categoryName = missionInfo?.category ?? task.category;
+
+              if (!grouped.has(categoryName)) {
+                grouped.set(categoryName, new Map());
+              }
+              const missionsMap = grouped.get(categoryName)!;
+
+              if (!missionsMap.has(parentId)) {
+                missionsMap.set(parentId, {
+                  missionTitle: missionInfo?.title ?? 'Mission',
+                  tasks: [],
+                });
+              }
+
+              missionsMap.get(parentId)!.tasks.push(task);
+            });
+
+            const orderedCategoryNames: string[] = [
+              ...categories.map((c) => c.name),
+              ...Array.from(grouped.keys()).filter((name) => !categories.some((c) => c.name === name)),
+            ];
+
+            return orderedCategoryNames.map((categoryName) => {
+              const missionsMap = grouped.get(categoryName);
+              if (!missionsMap) return null;
+
+              const category = categories.find((c) => c.name === categoryName);
+
+              return (
+                <div key={categoryName} className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <span
+                        className="inline-flex h-2 w-2 rounded-full"
+                        style={{ backgroundColor: category?.color || '#8b5cf6' }}
+                      />
+                      {categoryName}
+                    </h3>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-800/50 to-transparent" />
+                  </div>
+
+                  {/* Missions within category */}
+                  <div className="space-y-3 pl-4">
+                    {Array.from(missionsMap.entries()).map(([missionId, { missionTitle, tasks }]) => (
+                      <div key={missionId} className="space-y-2">
+                        <h4 className="text-sm font-semibold text-white/80">{missionTitle}</h4>
+                        <div className="space-y-2 pl-4 border-l-2 border-brand-800/40">
+                          {tasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="rounded-2xl border border-brand-800/40 bg-brand-900/30 p-4 text-white shadow-card flex items-start justify-between gap-4"
+                            >
+                              <div className="flex items-start gap-3 flex-1">
+                                <button
+                                  onClick={() => handleToggleState(task.taskId, task.currentState)}
+                                  className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                                    task.currentState === 'COMPLETED'
+                                      ? 'border-brand-500 bg-brand-500 text-white'
+                                      : 'border-white/30 hover:border-white/50'
+                                  }`}
+                                  aria-label={
+                                    task.currentState === 'COMPLETED' ? 'Mark as not started' : 'Mark as completed'
+                                  }
+                                >
+                                  {task.currentState === 'COMPLETED' && <Check className="h-3.5 w-3.5" />}
+                                </button>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3
+                                      className={`text-sm font-medium ${
+                                        task.currentState === 'COMPLETED'
+                                          ? 'text-white/50 line-through'
+                                          : 'text-white'
+                                      }`}
+                                    >
+                                      {task.title}
+                                    </h3>
+                                    <Badge tone={task.currentState === 'COMPLETED' ? 'success' : 'neutral'}>
+                                      {task.currentState === 'COMPLETED' ? 'Done' : 'To-do'}
+                                    </Badge>
+                                  </div>
+                                  {task.description && (
+                                    <p
+                                      className={`mt-1 text-xs ${
+                                        task.currentState === 'COMPLETED'
+                                          ? 'text-white/40 line-through'
+                                          : 'text-white/70'
+                                      }`}
+                                    >
+                                      {task.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                onClick={() => handleRemove(task.taskId)}
+                                className="h-8 w-8 p-0"
+                                aria-label="Remove from selected tasks"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleRemove(task.taskId)}
-                  className="h-8 w-8 p-0"
-                  aria-label="Remove from selected tasks"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
+              );
+            });
+          })()}
         </div>
       )}
     </div>
