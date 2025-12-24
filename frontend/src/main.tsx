@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { CacheManager } from './components/CacheManager';
 import './style.css';
 
 const queryClient = new QueryClient({
@@ -24,6 +25,7 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        <CacheManager />
         <RouterProvider router={router} />
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
